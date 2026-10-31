@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-bookworm
+    container_name: vote-anywhere-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vote_anywhere}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vote_anywhere_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-vote_anywhere}
+    ports:
+      - "5432:5432"
+    volumes:
+      - vote_anywhere_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-vote_anywhere} -d $${POSTGRES_DB:-vote_anywhere}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  vote_anywhere_pgdata:

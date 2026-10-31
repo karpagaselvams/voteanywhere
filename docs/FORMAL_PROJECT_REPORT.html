@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vote Anywhere: Remote Polling System Simulator - BCA Project Report</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 12pt;
+            line-height: 1.6;
+            color: #000;
+            background: #fff;
+            text-align: justify;
+        }
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            height: 297mm;
+            margin: 0 auto;
+            padding: 20mm 20mm 25mm 25mm;
+            background: #fff;
+            page-break-after: always;
+            position: relative;
+            overflow: visible;
+        }
+        .page-number {
+            position: absolute;
+            bottom: 12mm;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 11pt;
+        }
+        .roman-page .page-number {
+            font-style: italic;
+        }
+        .front-page {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: stretch;
+        }
+        .front-page * {
+            text-align: center;
+        }
+        .front-page h1 {
+            font-size: 18pt;
+            font-weight: bold;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        .front-page .subtitle {
+            font-size: 14pt;
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+        .front-page .degree {
+            font-size: 15pt;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .front-page .by {
+            font-size: 13pt;
+            margin: 12px 0 3px;
+            font-weight: bold;
+        }
+        .front-page .name {
+            font-size: 14pt;
+            font-weight: bold;
+            margin: 3px 0;
+        }
+        .front-page .reg {
+            font-size: 12pt;
+            margin-bottom: 12px;
+        }
+        .front-page .guide-section {
+            font-size: 12pt;
+            margin: 10px 0;
+            line-height: 1.5;
+        }
+        .front-page .dept {
+            font-size: 12pt;
+            font-weight: bold;
+            margin-top: 15px;
+            line-height: 1.5;
+        }
+        .front-page .university {
+            font-size: 11pt;
+            margin-top: 3px;
+        }
+        .front-page .date {
+            font-size: 13pt;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .cert-page {
+            text-align: center;
+        }
+        .cert-page h2 {
+            font-size: 16pt;
+            text-decoration: underline;
+            margin-bottom: 25px;
+        }
+        .cert-page p {
+            text-align: justify;
+            margin-bottom: 15px;
+            font-size: 12pt;
+            line-height: 1.8;
+        }
+        .cert-page .signatures {
+            margin-top: 80px;
+            display: flex;
+            justify-content: space-around;
+        }
+        .cert-page .sig-block {
+            text-align: center;
+            font-size: 11pt;
+            line-height: 1.6;
+        }
+        h1 {
+            font-size: 16pt;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+        h2 {
+            font-size: 13pt;
+            font-weight: bold;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+        h3 {
+            font-size: 12pt;
+            font-weight: bold;
+            margin-top: 10px;
+            margin-bottom: 8px;
+        }
+        p {
+            margin-bottom: 10px;
+            text-align: justify;
+        }
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 10px;
+        }
+        li {
+            margin-bottom: 5px;
+            font-size: 11pt;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 10pt;
+        }
+        table, th, td {
+            border: 1px solid #000;
+        }
+        th, td {
+            padding: 6px;
+            text-align: left;
+        }
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        .code-block {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 6px;
+            margin: 8px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 9pt;
+            overflow-x: auto;
+            page-break-inside: avoid;
+        }
+        .toc {
+            page-break-after: always;
+        }
+        .toc h2 {
+            text-align: center;
+        }
+        .toc ol {
+            margin-left: 20px;
+        }
+        .toc li {
+            margin-bottom: 6px;
+            font-size: 11pt;
+        }
+        .diagram {
+            text-align: center;
+            margin: 12px 0;
+            font-family: monospace;
+            font-size: 9pt;
+            white-space: pre;
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+<body>
+<!-- Page 1: Front Page -->
+<div class="page front-page">
+    <div style="margin-bottom: 40px;"></div>
+    <h1>Vote Anywhere</h1>
+    <p class="subtitle">Remote Polling System Simulator</p>
+    <p class="subtitle">for Geographically Mobile Voters</p>
+    <div style="margin-bottom: 40px;"></div>
+    <p class="degree">FINAL YEAR PROJECT REPORT</p>
+    <p class="degree">Bachelor of Computer Applications (BCA)</p>
+    <div style="margin-bottom: 50px;"></div>
+    <p class="by">Submitted By</p>
+    <p class="name">[Student Name]</p>
+    <p class="reg">[Registration Number]</p>
+    <div style="margin-bottom: 30px;"></div>
+    <p class="guide-section">Under the Guidance of<br><strong>[Guide Name]</strong></p>
+    <div style="margin-bottom: 50px;"></div>
+    <p class="dept">Department of Computer Applications</p>
+    <p class="university">[Institution Name]</p>
+    <p class="date">October 2026</p>
+    <div class="page-number">---</div>
+</div>
+
+<!-- Page 2: Certificate -->
+<div class="page cert-page">
+    <h2>Certificate</h2>
+    <p>This is to certify that the project work entitled <strong>"Vote Anywhere: Remote Polling System Simulator for Geographically Mobile Voters"</strong> is a bonafide work submitted in partial fulfillment of the requirement for the degree of Bachelor of Computer Applications (BCA) at [Institution Name].</p>
+    
+    <p>The project has been successfully developed, tested, and documented as per the academic standards. It demonstrates the student's competency in full-stack web development, database design, security implementation, and software engineering practices. The work is original and has been completed under the guidance of the undersigned faculty members.</p>
+    
+    <p>The project follows all academic policies, ethical guidelines, and institutional regulations. All concepts and code implemented in this project are developed independently by the student.</p>
+    
+    <div class="signatures">
+        <div class="sig-block">
+            <div style="margin-top: 50px; border-top: 1px solid #000; width: 140px;"></div>
+            <p><strong>Project Guide</strong></p>
+            <p>[Faculty Name]</p>
+            <p style="font-size: 10pt;">Date: ___________</p>
+        </div>
+        <div class="sig-block">
+            <div style="margin-top: 50px; border-top: 1px solid #000; width: 140px;"></div>
+            <p><strong>HOD / Coordinator</strong></p>
+            <p>[Department Head]</p>
+            <p style="font-size: 10pt;">Date: ___________</p>
+        </div>
+    </div>
+    
+    <div class="page-number">ii</div>
+</div>
+
+<!-- Page 3: Table of Contents -->
+<div class="page roman-page toc">
+    <h2>Table of Contents</h2>
+    <ol>
+        <li>Project Overview and Objectives</li>
+        <li>Domain Concepts and Terminology</li>
+        <li>System Architecture and Technology Stack</li>
+        <li>User Roles and Permissions</li>
+        <li>Core Modules and Functionality</li>
+        <li>Database Design and Schema</li>
+        <li>API Endpoints and Specifications</li>
+        <li>Frontend Architecture and Components</li>
+        <li>Security Implementation</li>
+        <li>Authentication and Authorization</li>
+        <li>Ballot Encryption and Integrity</li>
+        <li>Audit Trail and Compliance</li>
+        <li>Testing Strategy and Results</li>
+        <li>Deployment and Configuration</li>
+        <li>Limitations and Future Work</li>
+        <li>Conclusion</li>
+    </ol>
+    <div class="page-number">iii</div>
+</div>
+
+<!-- Page 4: Section 1 - Project Overview -->
+<div class="page">
+    <h1>1. Project Overview and Objectives</h1>
+    
+    <h2>1.1 Project Title</h2>
+    <p><strong>Vote Anywhere: Remote Polling System Simulator for Geographically Mobile Voters</strong></p>
+    
+    <h2>1.2 Introduction and Background</h2>
+    <p>In democratic elections, voters may find themselves geographically distant from their registered polling centre due to work, education, or other commitments. Vote Anywhere simulates a workflow that allows such voters to request and receive approval to vote at alternative polling centres without compromising their eligibility or changing their registered constituency.</p>
+    
+    <p>The system demonstrates modern web application architecture, security best practices, and the critical concepts involved in secure electoral systems. It incorporates voter authentication, role-based authorization, ballot secrecy principles, encryption, audit trails, and state management.</p>
+    
+    <h2>1.3 Project Objectives</h2>
+    <ul>
+        <li>Simulate a complete remote polling workflow for geographically mobile voters</li>
+        <li>Implement secure voter authentication using mock OTP mechanisms with rate limiting</li>
+        <li>Enforce role-based authorization for five distinct officer and voter roles</li>
+        <li>Maintain ballot secrecy by completely separating voter identity from candidate choices</li>
+        <li>Provide AES-256-GCM encrypted ballot storage with integrity verification</li>
+        <li>Prevent duplicate ballot submissions using database constraints within transactions</li>
+        <li>Generate comprehensive audit trails for all state-changing operations</li>
+        <li>Simulate post-election ballot counting and constituency-level reconciliation</li>
+        <li>Demonstrate secure password handling, session management, and JWT token use</li>
+        <li>Provide separate user portals for voters, officers, and system administrators</li>
+    </ul>
+    
+    <h2>1.4 Scope and Academic Boundaries</h2>
+    
+    <h3>Features Included:</h3>
+    <ul>
+        <li>Full remote polling request and approval workflow</li>
+        <li>Voter authentication, registration, and eligibility verification</li>
+        <li>Officer and administrator access with role-based control</li>
+        <li>Constituency-based ballot generation and encryption</li>
+        <li>Election simulation, counting, and reconciliation</li>
+        <li>Comprehensive audit logging and access control</li>
+        <li>Session management with password change and logout</li>
+    </ul>
+    
+    <h3>Academic Project Boundary:</h3>
+    <p>This is a <strong>workflow simulator using fictional data</strong>. It does not connect to or claim capabilities for:</p>
+    <ul>
+        <li>Real Election Commission of India (ECI) systems or data</li>
+        <li>Actual electoral rolls, voter databases, or Aadhaar integration</li>
+        <li>Real SMS/Email OTP services or biometric authentication</li>
+        <li>Distributed consensus, quorum, or multi-node election networks</li>
+        <li>Production-grade cryptographic infrastructure or HSM integration</li>
+        <li>Real elections or actual voter participation</li>
+    </ul>
+    
+    <p><strong>Data Note:</strong> All voters, constituencies, polling centres, candidates, and elections used in this system are entirely fictional and generated for demonstration purposes only.</p>
+    
+    <div class="page-number">1</div>
+</div>
+
+<!-- Page 5: Section 2 - Domain Concepts -->
+<div class="page">
+    <h1>2. Domain Concepts and Terminology</h1>
+    
+    <h2>2.1 Core Entities</h2>
+    
+    <h3>Voter</h3>
+    <p>A fictional person holding a record in the system's voter register. Each voter has a unique voter ID, registration details, and a registered constituency that determines their ballot.</p>
+    
+    <h3>Registered Constituency</h3>
+    <p>The constituency where a voter is officially enrolled. This is permanently assigned and determines the candidates presented on their ballot. <strong>It is never changed by remote polling approval.</strong></p>
+    
+    <h3>Polling Centre</h3>
+    <p>A physical location where voting takes place. Each polling centre belongs to exactly one constituency. Elections are conducted simultaneously across all polling centres in a constituency.</p>
+    
+    <h3>Remote Polling Centre</h3>
+    <p>An alternative polling centre, typically in a different constituency, that a voter requests to use because they are geographically distant from their registered constituency during an election.</p>
+    
+    <h3>Remote Polling Request</h3>
+    <p>A voter's formal application to vote at a remote polling centre for a specific election. These are reviewed, approved, or rejected by Verification Officers based on eligibility criteria.</p>
+    
+    <h3>Remote Polling Assignment</h3>
+    <p>The approved authorization resulting from an accepted request. It grants a specific voter permission to appear at a named remote polling centre for a named election.</p>
+    
+    <h2>2.2 The Fundamental Core Rule</h2>
+    <p style="background-color: #f5f5f5; padding: 10px; border-left: 3px solid #000;"><strong>A remote polling centre changes WHERE a voter votes. It never changes the voter's registered constituency or the ballot they receive.</strong></p>
+    
+    <h3>Example Scenario:</h3>
+    <table>
+        <tr><th>Attribute</th><th>Value</th></tr>
+        <tr><td>Voter</td><td>Arjun (Voter ID: V12345)</td></tr>
+        <tr><td>Registered Constituency</td><td>Chennai South</td></tr>
+        <tr><td>Current Location</td><td>Madurai (away during election)</td></tr>
+        <tr><td>Requested Remote Centre</td><td>Madurai Constituency Centre</td></tr>
+        <tr><td>Approved Location to Vote</td><td>Madurai Centre</td></tr>
+        <tr><td style="font-weight: bold;">Ballot Constituency</td><td style="font-weight: bold;">Chennai South (unchanged)</td></tr>
+    </table>
+    
+    <p>Arjun will vote at the Madurai polling centre, but receives the Chennai South ballot with Chennai South candidates.</p>
+    
+    <h2>2.3 Ballot Secrecy Principle</h2>
+    <p>The system is architected around the fundamental principle that <strong>voter identity must never appear alongside candidate choice</strong> in any API response, log entry, database view, or audit record.</p>
+    
+    <ul>
+        <li><strong>Opaque References:</strong> Submitted ballots are referred to only by random, non-sequential ballot references that carry no voter information</li>
+        <li><strong>Data Separation:</strong> Voter records and candidate choice data are maintained in separate database schemas and never joined in API responses</li>
+        <li><strong>Encryption:</strong> Candidate choices are stored only in encrypted form (AES-256-GCM)</li>
+        <li><strong>Audit Safety:</strong> Audit records never contain decrypted candidate choices, only ballot actions and references</li>
+        <li><strong>Logging:</strong> Application logs never pair voter identity with candidate selection</li>
+    </ul>
+    
+    <div class="page-number">2</div>
+</div>
+
+<!-- Page 6: Section 3 - Architecture -->
+<div class="page">
+    <h1>3. System Architecture and Technology Stack</h1>
+    
+    <h2>3.1 Technology Stack Overview</h2>
+    
+    <h3>Frontend</h3>
+    <ul>
+        <li><strong>React 18+</strong> with TypeScript for type-safe UI components</li>
+        <li><strong>Vite</strong> for fast build and development server</li>
+        <li><strong>Tailwind CSS 4</strong> for utility-first styling</li>
+        <li><strong>React Router</strong> for navigation and routing</li>
+        <li><strong>Axios</strong> for HTTP requests to backend API</li>
+    </ul>
+    
+    <h3>Backend</h3>
+    <ul>
+        <li><strong>Node.js</strong> runtime with Express.js web framework</li>
+        <li><strong>TypeScript</strong> for type safety and better IDE support</li>
+        <li><strong>Prisma 6</strong> as Object-Relational Mapping layer</li>
+        <li><strong>PostgreSQL 16</strong> as the primary database</li>
+        <li><strong>bcrypt</strong> for secure password hashing (10 salt rounds)</li>
+        <li><strong>jsonwebtoken (JWT)</strong> for session tokens</li>
+        <li><strong>Zod</strong> for runtime schema validation and type inference</li>
+        <li><strong>Jest</strong> for unit and integration testing</li>
+    </ul>
+    
+    <h3>Infrastructure and DevOps</h3>
+    <ul>
+        <li><strong>Docker &amp; Docker Compose</strong> for containerized development and deployment</li>
+        <li><strong>Git</strong> for version control</li>
+        <li><strong>ESLint &amp; Prettier</strong> for code quality and formatting</li>
+    </ul>
+    
+    <h2>3.2 Architectural Layers</h2>
+    
+    <h3>Presentation Layer (Frontend)</h3>
+    <p>Three separate React portals serve the three user categories:</p>
+    <ul>
+        <li><strong>Voter Portal:</strong> OTP login, remote polling request submission, ballot access</li>
+        <li><strong>Officer Portal:</strong> Request review and approval, voter verification, polling centre operations</li>
+        <li><strong>Admin Portal:</strong> Election configuration, officer management, system settings</li>
+    </ul>
+    
+    <h3>API Layer (Express Backend)</h3>
+    <p>RESTful API endpoints organized by domain modules:</p>
+    <ul>
+        <li>Authentication endpoints (login, logout, password change)</li>
+        <li>Voter management (profile, eligibility, records)</li>
+        <li>Election management (create, configure, activate, close)</li>
+        <li>Remote polling (request submission, approval, assignment)</li>
+        <li>Ballot generation and submission</li>
+        <li>Audit trail retrieval</li>
+        <li>Election simulation and reconciliation</li>
+    </ul>
+    
+    <h3>Business Logic Layer (Domain Modules)</h3>
+    <p>Seven independent domain modules implementing core workflows:</p>
+    <ul>
+        <li><strong>Auth Module:</strong> Authentication, session management, password handling</li>
+        <li><strong>Voter Module:</strong> Voter records, eligibility verification</li>
+        <li><strong>Election Module:</strong> Election lifecycle and configuration</li>
+        <li><strong>Remote Polling Module:</strong> Request workflow and assignment</li>
+        <li><strong>Ballot Module:</strong> Ballot generation, encryption, submission</li>
+        <li><strong>Audit Module:</strong> Audit trail recording and retrieval</li>
+        <li><strong>Election Simulator:</strong> Post-election counting and reconciliation</li>
+    </ul>
+    
+    <h3>Data Layer (Prisma + PostgreSQL)</h3>
+    <p>Relational database with carefully designed schema to support:</p>
+    <ul>
+        <li>Role-based access control constraints</li>
+        <li>Ballot secrecy through schema separation</li>
+        <li>Duplicate submission prevention via unique constraints</li>
+        <li>Temporal audit trail with immutable records</li>
+        <li>Encrypted ballot storage</li>
+    </ul>
+    
+    <h2>3.3 High-Level System Diagram</h2>
+    <div class="diagram">┌──────────────────────────────────────────────────┐
+│         Frontend Layer (React + TypeScript)       │
+│  ┌─────────────┬──────────────┬─────────────┐   │
+│  │ Voter       │ Officer      │ Admin       │   │
+│  │ Portal      │ Portal       │ Portal      │   │
+│  └─────────────┴──────────────┴─────────────┘   │
+└──────────────────────────────────────────────────┘
+                        ↓ REST API
+┌──────────────────────────────────────────────────┐
+│  Backend (Express + TypeScript + Middleware)     │
+│  ┌──────────────────────────────────────────┐   │
+│  │ Auth │ Validate │ Authorize │ RateLimit  │   │
+│  └──────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────┐   │
+│  │ Domain Modules (7 Core Business Logic)  │   │
+│  │ Auth │ Voter │ Election │ Remote Polling│   │
+│  │ Ballot │ Audit │ Simulator              │   │
+│  └──────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────┘
+                        ↓ Prisma ORM
+┌──────────────────────────────────────────────────┐
+│       Database (PostgreSQL 16)                    │
+│ Users │ Voters │ Elections │ Ballots │ Audit     │
+│ Constituencies │ Candidates │ Sessions           │
+└──────────────────────────────────────────────────┘
+</div>
+    
+    <div class="page-number">3</div>
+</div>
+
+<!-- Page 7: Section 4 - User Roles -->
+<div class="page">
+    <h1>4. User Roles and Permissions</h1>
+    
+    <h2>4.1 The Five Roles</h2>
+    <p>Vote Anywhere implements five distinct roles with precisely defined permissions. Role enforcement occurs in backend middleware, not in frontend UI hiding.</p>
+    
+    <h3>1. Voter</h3>
+    <p><strong>Responsibilities:</strong></p>
+    <ul>
+        <li>Authenticate using mock OTP</li>
+        <li>View personal eligibility information</li>
+        <li>Submit remote polling requests</li>
+        <li>View request status and approval decisions</li>
+        <li>Access and submit ballots for assigned elections</li>
+        <li>Change personal password</li>
+    </ul>
+    <p><strong>Cannot:</strong> Access officer functions, view other voters' data, approve requests, or configure elections</p>
+    
+    <h3>2. Verification Officer</h3>
+    <p><strong>Responsibilities:</strong></p>
+    <ul>
+        <li>Review voter eligibility information</li>
+        <li>Review remote polling requests submitted by voters</li>
+        <li>Approve or reject remote polling requests</li>
+        <li>Provide rejection reason when applicable</li>
+        <li>View voter records and eligibility status</li>
+    </ul>
+    <p><strong>Cannot:</strong> Access ballots, configure elections, manage users, or modify voter records</p>
+    
+    <h3>3. Polling Centre Officer</h3>
+    <p><strong>Responsibilities:</strong></p>
+    <ul>
+        <li>Verify voters at polling centre</li>
+        <li>Manage polling centre operations for assigned centre</li>
+        <li>View assigned polling centre information</li>
+        <li>Support voter verification using remote polling assignments</li>
+    </ul>
+    <p><strong>Cannot:</strong> Approve requests, access ballots, configure elections, or manage other centres</p>
+    
+    <h3>4. Election Administrator</h3>
+    <p><strong>Responsibilities:</strong></p>
+    <ul>
+        <li>Create and configure elections</li>
+        <li>Manage constituencies and candidates</li>
+        <li>Activate and close elections</li>
+        <li>Manage polling centres</li>
+        <li>Create and manage officer accounts</li>
+    </ul>
+    <p><strong>Cannot:</strong> Access ballots, approve requests, or modify audit records</p>
+    
+    <h3>5. System Auditor</h3>
+    <p><strong>Responsibilities:</strong></p>
+    <ul>
+        <li>Review audit trail records</li>
+        <li>View all state-changing operations</li>
+        <li>Verify ballot integrity and reconciliation reports</li>
+        <li>Access historical logs and decisions</li>
+    </ul>
+    <p><strong>Cannot:</strong> Modify any data, approve requests, or access decrypted ballots</p>
+    
+    <h2>4.2 Authentication Methods by Role</h2>
+    
+    <table>
+        <tr><th>Role</th><th>Authentication Method</th><th>Session Duration</th><th>2FA/MFA</th></tr>
+        <tr><td>Voter</td><td>Mock OTP + Password</td><td>24 hours</td><td>OTP serves as MFA</td></tr>
+        <tr><td>Verification Officer</td><td>Username + Password</td><td>8 hours</td><td>Not implemented</td></tr>
+        <tr><td>Polling Centre Officer</td><td>Username + Password</td><td>8 hours</td><td>Not implemented</td></tr>
+        <tr><td>Election Administrator</td><td>Username + Password</td><td>6 hours</td><td>Not implemented</td></tr>
+        <tr><td>System Auditor</td><td>Username + Password</td><td>12 hours</td><td>Not implemented</td></tr>
+    </table>
+    
+    <h2>4.3 Permission Matrix Summary</h2>
+    <p>Detailed permission matrix available in backend authorization middleware configuration. Key principle: permissions are enforced by backend on every request, with explicit whitelist model (deny by default).</p>
+    
+    <div class="page-number">4</div>
+</div>
+
+<!-- Page 8: Section 5 - Core Modules -->
+<div class="page">
+    <h1>5. Core Modules and Functionality</h1>
+    
+    <h2>5.1 Authentication Module</h2>
+    
+    <h3>Voter Authentication (OTP-based)</h3>
+    <ul>
+        <li><strong>Mock OTP Generation:</strong> Creates fictional 6-digit OTP for voters</li>
+        <li><strong>OTP Validation:</strong> Single-use, time-limited (15 minutes expiry)</li>
+        <li><strong>Rate Limiting:</strong> Maximum 3 incorrect attempts per 15 minutes</li>
+        <li><strong>Session Creation:</strong> JWT token issued on successful OTP verification</li>
+        <li><strong>Password Setup:</strong> Voters set password during first OTP login</li>
+        <li><strong>Password Change:</strong> Self-service password change with current password verification</li>
+    </ul>
+    
+    <h3>Officer Authentication (Password-based)</h3>
+    <ul>
+        <li><strong>Username + Password Login:</strong> Standard credentials-based authentication</li>
+        <li><strong>Password Security:</strong> Minimum 8 characters, bcrypt with 10 salt rounds</li>
+        <li><strong>Session Management:</strong> JWT token with role-based claims</li>
+        <li><strong>Password Change:</strong> Requires current password verification, revokes all other active sessions</li>
+        <li><strong>Account Lockout:</strong> After 5 failed attempts in 30 minutes (subject to configuration)</li>
+    </ul>
+    
+    <h2>5.2 Voter Management Module</h2>
+    <ul>
+        <li><strong>Voter Registration:</strong> Create fictional voter records with unique IDs</li>
+        <li><strong>Eligibility Verification:</strong> Check voter status, age, and constituency registration</li>
+        <li><strong>Constituency Assignment:</strong> Link voters to registered constituencies permanently</li>
+        <li><strong>Duplicate Prevention:</strong> Prevent duplicate voter entries via database constraints</li>
+        <li><strong>Profile Management:</strong> Allow voters to view and update personal information</li>
+        <li><strong>Record Search:</strong> Officers can search voter records for eligibility checks</li>
+    </ul>
+    
+    <h2>5.3 Election Management Module</h2>
+    
+    <h3>Election Lifecycle</h3>
+    <ul>
+        <li><strong>Creation:</strong> Administrators create elections with name, date, and scope</li>
+        <li><strong>Configuration:</strong> Define constituencies, candidates, and voting rules</li>
+        <li><strong>Activation:</strong> Transition election to active state and enable voting</li>
+        <li><strong>Closure:</strong> End voting period and prevent new submissions</li>
+        <li><strong>Archival:</strong> Preserve historical election data for audit</li>
+    </ul>
+    
+    <h3>Candidate Management</h3>
+    <ul>
+        <li>Create candidates with names, party affiliations, and constituency assignments</li>
+        <li>Assign candidates to constituencies within elections</li>
+        <li>Prevent invalid candidate configurations (e.g., one candidate per constituency)</li>
+        <li>Support fictional data for demonstration</li>
+    </ul>
+    
+    <h2>5.4 Remote Polling Workflow Module</h2>
+    
+    <h3>Request Submission</h3>
+    <ul>
+        <li>Voter submits request specifying desired remote polling centre</li>
+        <li>Request linked to specific election and voter</li>
+        <li>Submission timestamp recorded in audit trail</li>
+        <li>Initial status: "PENDING_REVIEW"</li>
+    </ul>
+    
+    <h3>Officer Review and Approval</h3>
+    <ul>
+        <li>Verification Officer reviews pending requests</li>
+        <li>Officer verifies voter eligibility (active status, not previously voted in election)</li>
+        <li>Officer reviews requested polling centre validity</li>
+        <li>Officer makes approval or rejection decision with optional reason</li>
+        <li>Decision recorded in audit trail with timestamp and officer ID</li>
+    </ul>
+    
+    <h3>Request States</h3>
+    <div class="code-block">PENDING_REVIEW → APPROVED → ASSIGNED (terminal)
+              ↓ (rejected)
+           REJECTED (terminal)
+              ↓ (cancelled)
+           CANCELLED (terminal)</div>
+    
+    <h3>Assignment Creation</h3>
+    <ul>
+        <li>Upon approval, automatic assignment created</li>
+        <li>Assignment specifies voter, election, and remote polling centre</li>
+        <li>Polling Centre Officer uses assignment to verify voter at centre</li>
+        <li>Assignment is location-specific and election-specific</li>
+    </ul>
+    
+    <h2>5.5 Ballot Module</h2>
+    
+    <h3>Ballot Generation</h3>
+    <ul>
+        <li>Generate ballot from <strong>voter's registered constituency</strong>, not remote centre</li>
+        <li>Ballot contains candidates from registered constituency for the election</li>
+        <li>Ballot generation triggered when voter accesses voting interface</li>
+        <li>Unique ballot reference (opaque, non-sequential) assigned</li>
+    </ul>
+    
+    <h3>Ballot Encryption and Storage</h3>
+    <ul>
+        <li><strong>Encryption Algorithm:</strong> AES-256-GCM (authenticated encryption)</li>
+        <li><strong>Key Management:</strong> Master encryption key stored securely in environment</li>
+        <li><strong>Storage:</strong> Encrypted candidate choice stored separately from voter data</li>
+        <li><strong>Integrity:</strong> GCM mode provides authentication tag for tampering detection</li>
+    </ul>
+    
+    <h3>Ballot Submission and Duplicate Prevention</h3>
+    <ul>
+        <li>Voter submits encrypted candidate choice with ballot reference</li>
+        <li><strong>Duplicate Prevention:</strong> Database unique constraint on (voter_id, election_id)</li>
+        <li><strong>Constraint Enforcement:</strong> Within transaction to prevent race conditions</li>
+        <li><strong>Error Handling:</strong> Graceful rejection if voter already submitted for election</li>
+        <li><strong>Audit Recording:</strong> Submission recorded without revealing voter-choice pair</li>
+    </ul>
+    
+    <div class="page-number">5</div>
+</div>
+
+<!-- Page 9: Sections 6-7 -->
+<div class="page">
+    <h1>6. Database Design and Schema</h1>
+    
+    <h2>6.1 Core Tables</h2>
+    
+    <h3>User and Authentication Tables</h3>
+    <ul>
+        <li><strong>officers:</strong> Officer accounts with username, hashed password, role</li>
+        <li><strong>sessions:</strong> Active officer sessions with JWT tokens and expiry</li>
+        <li><strong>voters:</strong> Voter records with ID, name, age, registered constituency</li>
+        <li><strong>voter_sessions:</strong> Voter session records with OTP and authentication state</li>
+    </ul>
+    
+    <h3>Electoral Data Tables</h3>
+    <ul>
+        <li><strong>constituencies:</strong> Constituency records with unique identifiers</li>
+        <li><strong>polling_centres:</strong> Polling location data linked to constituencies</li>
+        <li><strong>elections:</strong> Election configuration with status and date</li>
+        <li><strong>candidates:</strong> Candidate records linked to elections and constituencies</li>
+    </ul>
+    
+    <h3>Ballot and Voting Tables</h3>
+    <ul>
+        <li><strong>ballots:</strong> Generated ballots with constituency, opaque references</li>
+        <li><strong>ballot_submissions:</strong> Submitted ballots with encrypted choices (no voter-choice pair)</li>
+        <li><strong>ballot_encryption_metadata:</strong> IV and salt for decryption (never the key)</li>
+    </ul>
+    
+    <h3>Remote Polling Tables</h3>
+    <ul>
+        <li><strong>remote_polling_requests:</strong> Voter requests with status and reasons</li>
+        <li><strong>remote_polling_assignments:</strong> Approved assignments linking voter to remote centre</li>
+    </ul>
+    
+    <h3>Audit and Compliance Tables</h3>
+    <ul>
+        <li><strong>audit_log:</strong> Immutable audit records of state-changing operations</li>
+        <li><strong>integrity_verifications:</strong> Records of ballot integrity checks performed</li>
+    </ul>
+    
+    <h2>6.2 Key Design Principles</h2>
+    
+    <h3>Ballot Secrecy Through Schema Design</h3>
+    <ul>
+        <li>Voter data (voters, voter_sessions) in one schema</li>
+        <li>Ballot data (ballots, ballot_submissions) in separate schema</li>
+        <li>No foreign key joining voters to candidate choices</li>
+        <li>Opaque ballot references prevent voter identification</li>
+    </ul>
+    
+    <h3>Duplicate Submission Prevention</h3>
+    <div class="code-block">UNIQUE (voter_id, election_id) ON ballot_submissions
+Enforced within database transaction
+Prevents race condition even with concurrent submissions</div>
+    
+    <h3>Audit Trail Immutability</h3>
+    <ul>
+        <li>Audit records append-only (no updates or deletes)</li>
+        <li>Timestamp and actor recorded for every operation</li>
+        <li>Never contains plaintext passwords, OTPs, or decrypted choices</li>
+        <li>Operations referenced by their IDs, not by data contents</li>
+    </ul>
+    
+    <h1>7. Security Implementation</h1>
+    
+    <h2>7.1 Authentication Security</h2>
+    
+    <h3>Password Security</h3>
+    <ul>
+        <li><strong>Hashing:</strong> bcrypt with 10 salt rounds (modern standard)</li>
+        <li><strong>Minimum Requirements:</strong> 8 characters minimum (enforced client and server)</li>
+        <li><strong>Never Logged:</strong> Passwords never appear in logs or audit records</li>
+        <li><strong>Transmission:</strong> HTTPS-only (TLS 1.2+) in production</li>
+    </ul>
+    
+    <h3>OTP Security</h3>
+    <ul>
+        <li><strong>Generation:</strong> Cryptographically random 6-digit codes</li>
+        <li><strong>Lifetime:</strong> 15-minute expiry from generation</li>
+        <li><strong>Single Use:</strong> OTP invalidated after successful verification</li>
+        <li><strong>Rate Limiting:</strong> Maximum 3 attempts per 15-minute window</li>
+        <li><strong>Storage:</strong> Hashed in database (not plaintext)</li>
+    </ul>
+    
+    <h3>Session Management</h3>
+    <ul>
+        <li><strong>JWT Tokens:</strong> Signed with HMAC-SHA256, includes role claims</li>
+        <li><strong>Token Expiry:</strong> Role-specific expiration (6-24 hours)</li>
+        <li><strong>Server-side Sessions:</strong> Token validated against database session record</li>
+        <li><strong>Logout:</strong> Session invalidated immediately, user must re-authenticate</li>
+        <li><strong>Password Change:</strong> Revokes all other active sessions of that user</li>
+    </ul>
+    
+    <h2>7.2 Ballot Integrity and Encryption</h2>
+    
+    <h3>Encryption Scheme</h3>
+    <ul>
+        <li><strong>Algorithm:</strong> AES-256-GCM (256-bit key, authenticated encryption)</li>
+        <li><strong>IV (Initialization Vector):</strong> 96-bit random value per encryption</li>
+        <li><strong>Authentication Tag:</strong> 128-bit GCM tag ensures no tampering</li>
+        <li><strong>Plaintext:</strong> Candidate choice encrypted and stored</li>
+    </ul>
+    
+    <h3>Integrity Verification</h3>
+    <ul>
+        <li>GCM authentication tag checked during decryption</li>
+        <li>Tampering detection if ciphertext is modified</li>
+        <li>Audit trail records integrity verification attempts</li>
+        <li>Decrypted choice never persisted or logged</li>
+    </ul>
+    
+    <div class="page-number">6</div>
+</div>
+
+<!-- Page 10: Sections 8-9 -->
+<div class="page">
+    <h1>8. Authorization and Role-Based Access Control</h1>
+    
+    <h2>8.1 Authorization Architecture</h2>
+    
+    <h3>Enforcement Layer</h3>
+    <ul>
+        <li><strong>Middleware-Based:</strong> Every backend endpoint protected by authorization middleware</li>
+        <li><strong>Role Checking:</strong> Request validated against endpoint's allowed roles</li>
+        <li><strong>Whitelist Model:</strong> Deny all by default, allow only explicitly permitted roles</li>
+        <li><strong>Token Validation:</strong> JWT token verified and role extracted from claims</li>
+    </ul>
+    
+    <h3>Permission Enforcement</h3>
+    <div class="code-block">Authorization Middleware Flow:
+1. Extract JWT token from Authorization header
+2. Verify token signature and expiry
+3. Retrieve user and role from token claims
+4. Check if role is in endpoint's allowed_roles list
+5. Grant access if authorized, return 403 Forbidden otherwise
+6. Record authorization check in audit log</div>
+    
+    <h2>8.2 Frontend UI Cannot Be Used for Authorization</h2>
+    <p>Frontend hiding of buttons or pages is <strong>NOT</strong> a security measure. Authorization is enforced at the backend API level:</p>
+    <ul>
+        <li>If a voter manually navigates to an officer endpoint URL, the backend rejects the request</li>
+        <li>Hidden UI elements provide user experience only, not access control</li>
+        <li>Every single API endpoint validates the caller's authorization</li>
+        <li>Frontend may optimize UX by hiding irrelevant controls, but backend is the true gatekeeper</li>
+    </ul>
+    
+    <h1>9. Audit Trail and Compliance</h1>
+    
+    <h2>9.1 Audit Trail Design</h2>
+    
+    <h3>What Gets Recorded</h3>
+    <p>Every state-changing operation is recorded:</p>
+    <ul>
+        <li>Voter login (successful and failed attempts)</li>
+        <li>Officer login (successful and failed attempts)</li>
+        <li>Remote polling request submission</li>
+        <li>Remote polling approval or rejection decisions</li>
+        <li>Ballot generation</li>
+        <li>Ballot submission (with opaque reference, not candidate choice)</li>
+        <li>Election creation, activation, closure</li>
+        <li>Officer or voter account creation/modification</li>
+        <li>Password changes and session revocation</li>
+        <li>Authorization failures (unauthorized access attempts)</li>
+        <li>Ballot integrity verification results</li>
+    </ul>
+    
+    <h3>What Never Gets Recorded</h3>
+    <ul>
+        <li>Plaintext passwords or OTP codes</li>
+        <li>JWT token values</li>
+        <li>Encryption keys or decrypted candidate choices</li>
+        <li>Voter identity alongside candidate choice (ballot secrecy)</li>
+        <li>Database credentials or connection strings</li>
+    </ul>
+    
+    <h2>9.2 Audit Record Structure</h2>
+    <div class="code-block">Each audit record contains:
+- audit_id: Unique identifier
+- timestamp: When the operation occurred (UTC)
+- actor_id: Who performed the action (user/officer/system)
+- actor_role: Role of the actor
+- operation: Type of operation (LOGIN, SUBMIT_REQUEST, etc.)
+- resource_id: ID of affected resource
+- resource_type: Type of resource (VOTER, BALLOT, etc.)
+- status: Success/failure status
+- details: Operation-specific details (never contains secrets)</div>
+    
+    <h2>9.3 Audit Trail Access</h2>
+    <ul>
+        <li><strong>System Auditor Role:</strong> Can read full audit trail</li>
+        <li><strong>Officer Roles:</strong> Can read audit records relevant to their operations</li>
+        <li><strong>Voters:</strong> Can read their own audit records only</li>
+        <li><strong>Audit Access Itself Audited:</strong> Audit trail reads are recorded in the audit trail</li>
+    </ul>
+    
+    <h1>10. Testing Strategy and Validation</h1>
+    
+    <h2>10.1 Test Coverage</h2>
+    
+    <h3>Authentication Tests</h3>
+    <ul>
+        <li>Voter OTP generation and validation</li>
+        <li>Officer login with correct/incorrect credentials</li>
+        <li>Password change and session revocation</li>
+        <li>Rate limiting enforcement</li>
+        <li>Token expiry and refresh scenarios</li>
+    </ul>
+    
+    <h3>Authorization Tests</h3>
+    <ul>
+        <li>Role-based endpoint access</li>
+        <li>Unauthorized access attempts rejected</li>
+        <li>Token manipulation detected</li>
+        <li>Role boundary enforcement</li>
+    </ul>
+    
+    <h3>Ballot and Voting Tests</h3>
+    <ul>
+        <li>Ballot generation uses registered constituency (not remote centre)</li>
+        <li>Ballot encryption and decryption</li>
+        <li>Integrity verification with tampered ciphertexts</li>
+        <li>Duplicate submission prevention</li>
+        <li>Ballot secrecy (no voter-choice pairs in responses)</li>
+    </ul>
+    
+    <h3>Remote Polling Workflow Tests</h3>
+    <ul>
+        <li>Request submission and status tracking</li>
+        <li>Officer approval/rejection workflow</li>
+        <li>Assignment creation upon approval</li>
+        <li>Polling centre verification using assignment</li>
+    </ul>
+    
+    <h3>Audit Trail Tests</h3>
+    <ul>
+        <li>Operations recorded with correct metadata</li>
+        <li>Sensitive data not logged</li>
+        <li>Audit record immutability</li>
+        <li>Access control on audit trail retrieval</li>
+    </ul>
+    
+    <h2>10.2 Test Execution</h2>
+    <p>Tests implemented using Jest with the following structure:</p>
+    <div class="code-block">npm run test               # Run all tests
+npm run test -- --coverage  # With coverage report
+npm run test auth           # Run auth-specific tests
+npm run test ballots        # Run ballot tests</div>
+    
+    <div class="page-number">7</div>
+</div>
+
+<!-- Page 11: Final Sections -->
+<div class="page">
+    <h1>11. Deployment and Configuration</h1>
+    
+    <h2>11.1 Development Environment Setup</h2>
+    
+    <h3>Prerequisites</h3>
+    <ul>
+        <li>Node.js 18+ (LTS recommended)</li>
+        <li>Docker and Docker Compose</li>
+        <li>Git for version control</li>
+        <li>PostgreSQL 16 (for local development without Docker)</li>
+    </ul>
+    
+    <h3>Quick Start</h3>
+    <div class="code-block">git clone &lt;repository-url&gt;
+cd vote-anywhere
+docker-compose up -d
+npm install --prefix backend
+npm install --prefix frontend
+npm run seed                # Populate fictional data
+npm run dev                 # Start dev servers</div>
+    
+    <h2>11.2 Production Deployment Considerations</h2>
+    <ul>
+        <li><strong>HTTPS/TLS:</strong> All communications must use TLS 1.2+</li>
+        <li><strong>Environment Variables:</strong> All secrets in .env files, never committed</li>
+        <li><strong>Database Backups:</strong> Regular automated backups of PostgreSQL</li>
+        <li><strong>Log Aggregation:</strong> Centralized logging with access controls</li>
+        <li><strong>Monitoring:</strong> Application health monitoring and alerts</li>
+        <li><strong>Load Balancing:</strong> Multiple backend instances behind load balancer</li>
+    </ul>
+    
+    <h1>12. Election Simulator Module</h1>
+    
+    <h2>12.1 Purpose</h2>
+    <p>The Election Simulator is a backend module that demonstrates post-election operations:</p>
+    <ul>
+        <li>Ballot counting by constituency</li>
+        <li>Candidate vote tallying</li>
+        <li>Reconciliation reports (ballots issued vs. ballots received)</li>
+        <li>Result generation and reporting</li>
+    </ul>
+    
+    <h2>12.2 Simulator Operation</h2>
+    <ul>
+        <li><strong>Single Instance:</strong> One Election Simulator module, not a distributed network</li>
+        <li><strong>No Consensus:</strong> No quorum, no distributed consensus mechanisms</li>
+        <li><strong>Academic Scope:</strong> Demonstrates workflow concepts only</li>
+        <li><strong>Triggered:</strong> Initiated by Election Administrator after election closure</li>
+    </ul>
+    
+    <h1>13. Known Limitations and Future Work</h1>
+    
+    <h2>13.1 Current Limitations</h2>
+    
+    <h3>By Design (Academic Scope)</h3>
+    <ul>
+        <li>Mock OTP only—no real SMS/Email integration</li>
+        <li>Fictional voter data only—no real electoral roll connection</li>
+        <li>Single-instance simulator—not a distributed system</li>
+        <li>In-memory OTP cache—does not persist across server restarts</li>
+        <li>No biometric authentication</li>
+        <li>No multi-factor authentication (MFA) for officers</li>
+        <li>Simplified password policy (may be enhanced for production)</li>
+    </ul>
+    
+    <h3>Technical Constraints</h3>
+    <ul>
+        <li>No horizontal scaling of ballot encryption (key management simplified)</li>
+        <li>No blockchain or distributed ledger (by design—single authority)</li>
+        <li>Limited offline functionality (web-based only)</li>
+        <li>No native mobile applications</li>
+        <li>Database-level rate limiting not implemented (application-level only)</li>
+    </ul>
+    
+    <h2>13.2 Potential Future Enhancements</h2>
+    <ul>
+        <li>Integration with mock ECI API for realistic electoral data</li>
+        <li>SMS/Email OTP delivery through third-party services</li>
+        <li>Biometric voter verification (fingerprint/iris simulation)</li>
+        <li>Multi-factor authentication (TOTP-based) for officers</li>
+        <li>End-to-end encryption for communications</li>
+        <li>Blockchain-based ballot verification (for demonstration)</li>
+        <li>Mobile-responsive native applications</li>
+        <li>Enhanced audit report generation and analytics</li>
+        <li>Disaster recovery and failover procedures</li>
+        <li>International language support (beyond English and regional languages)</li>
+    </ul>
+    
+    <h1>14. Conclusion</h1>
+    
+    <p>Vote Anywhere successfully demonstrates a complete remote polling workflow system with modern security practices, role-based access control, and comprehensive audit trails. The project showcases full-stack web development capabilities using contemporary technologies and architectural patterns.</p>
+    
+    <p>The system prioritizes ballot secrecy, data protection, and compliance through:</p>
+    <ul>
+        <li>Careful schema design separating voter and ballot data</li>
+        <li>Encryption of candidate choices with authenticated encryption (AES-256-GCM)</li>
+        <li>Backend-enforced authorization on every endpoint</li>
+        <li>Comprehensive immutable audit trails</li>
+        <li>Duplicate submission prevention via database constraints</li>
+        <li>Secure password and OTP handling</li>
+    </ul>
+    
+    <p>While constrained as an academic project using fictional data, Vote Anywhere demonstrates core principles applicable to real electoral systems and serves as a foundation for further development and enhancement.</p>
+    
+    <div style="margin-top: 30px; text-align: center; font-style: italic;">
+        <p>---</p>
+        <p><strong>End of Report</strong></p>
+        <p>Vote Anywhere: Remote Polling System Simulator</p>
+        <p>BCA Final Year Project</p>
+    </div>
+    
+    <div class="page-number">8</div>
+</div>
+
+<!-- Closing Tag -->
+</body>
+</html>

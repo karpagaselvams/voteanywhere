@@ -1,0 +1,43 @@
+---
+description: Portal structure, routing, forms, and API access conventions for the React frontend
+globs: **/frontend/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Frontend Portal Conventions
+
+Three portals under `src/pages/`: `voter/`, `officer/`, `admin/`. A page belongs to exactly one portal. Shared UI goes in `src/components/`, never in a portal folder.
+
+## Routing
+
+Each portal sits behind a route guard that checks the authenticated role. The guard controls navigation only.
+
+```tsx
+// ❌ BAD — treating a hidden control as a permission
+{user.role === 'ELECTION_ADMINISTRATOR' && <CloseElectionButton />}
+// ...with no role check on the backend route
+```
+
+Hiding a control is a usability choice. The backend must reject the call regardless.
+
+## API access
+
+All HTTP goes through typed functions in `src/services/`. Components and hooks never call Axios directly and never build a URL by hand.
+
+```ts
+// src/services/remotePolling.ts
+export const submitRemotePollingRequest = (input: RemotePollingRequestInput) =>
+  api.post<RemotePollingRequest>('/remote-polling/requests', input).then((r) => r.data);
+```
+
+## Forms
+
+React Hook Form with a Zod resolver. The Zod schema is the single source of validation truth for a form; do not duplicate rules in JSX.
+
+## Ballots in the UI
+
+Never render or store a voter identifier alongside a candidate choice. Show the ballot's constituency as it came from the API; never compute it from the assigned remote polling centre.
+
+## State
+
+No TanStack Query or Redux. Local state plus the service layer is the agreed scope.

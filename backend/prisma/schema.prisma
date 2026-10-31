@@ -1,0 +1,323 @@
+// Vote Anywhere data layer.
+// PostgreSQL 16 behind Prisma 6. Every schema change ships with a migration;
+// `prisma db push` is not used in this project.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Roles and lifecycle enums
+// ---------------------------------------------------------------------------
+
+/// The four officer roles. Voter is not stored here: voters authenticate with
+/// a mock OTP and their role is implied by the session's actor type.
+enum OfficerRole {
+  ELECTION_ADMINISTRATOR
+  VERIFICATION_OFFICER
+  POLLING_CENTRE_OFFICER
+  SYSTEM_AUDITOR
+}
+
+/// An election has exactly one lifecycle: configured, active, closed.
+enum ElectionLifecycle {
+  CONFIGURED
+  ACTIVE
+  CLOSED
+}
+
+/// Remote polling request lifecycle. PENDING and UNDER_REVIEW are the active
+/// statuses; a partial unique index allows at most one active request per
+/// voter per election.
+/// Remote polling request lifecycle. PENDING and UNDER_REVIEW are the active
+/// statuses; a partial unique index allows at most one active request per
+/// voter per election. USED and EXPIRED are terminal states of an approved
+/// request; see the remote-polling-workflow state machine.
+enum RemotePollingRequestStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  WITHDRAWN
+  USED
+  EXPIRED
+}
+
+enum ActorType {
+  OFFICER
+  VOTER
+  SYSTEM
+}
+
+// ---------------------------------------------------------------------------
+// Officers and voters (identity side)
+// ---------------------------------------------------------------------------
+
+model Officer {
+  id           String      @id @default(uuid())
+  username     String      @unique
+  passwordHash String
+  role         OfficerRole
+  displayName  String
+  createdAt    DateTime    @default(now())
+
+  sessions            Session[]               @relation("OfficerSessions")
+  reviewedRequests    RemotePollingRequest[]  @relation("ReviewingOfficer")
+  assignmentsCreated  RemotePollingAssignment[] @relation("AssigningOfficer")
+}
+
+model Voter {
+  id                       String  @id @default(uuid())
+  /// Public identifier on the fictional voter roll.
+  voterNumber              String  @unique
+  fullName                 String
+  /// Fixed by the voter record. Never derived from where the voter is voting,
+  /// and changeable by nobody through the API.
+  registeredConstituencyId String
+  homePollingCentreId      String?
+  createdAt                DateTime @default(now())
+
+  registeredConstituency   Constituency             @relation(fields: [registeredConstituencyId], references: [id])
+  homePollingCentre        PollingCentre?           @relation("HomePollingCentre", fields: [homePollingCentreId], references: [id])
+  electionStatuses         VoterElectionStatus[]
+  remotePollingRequests    RemotePollingRequest[]
+  remotePollingAssignments RemotePollingAssignment[]
+  otpChallenges            OtpChallenge[]
+  sessions                 Session[]                @relation("VoterSessions")
+}
+
+// ---------------------------------------------------------------------------
+// Constituencies and polling centres
+// ---------------------------------------------------------------------------
+
+model Constituency {
+  id   String @id @default(uuid())
+  code String @unique
+  name String
+
+  voters           Voter[]
+  pollingCentres   PollingCentre[]
+  elections        ElectionConstituency[]
+  candidates       Candidate[]
+  submittedBallots SubmittedBallot[]
+}
+
+model PollingCentre {
+  id   String @id @default(uuid())
+  code String @unique
+  name String
+  /// A polling centre belongs to exactly one constituency.
+  constituencyId String
+
+  constituency             Constituency             @relation(fields: [constituencyId], references: [id])
+  homeVoters               Voter[]                  @relation("HomePollingCentre")
+  remotePollingRequests    RemotePollingRequest[]
+  remotePollingAssignments RemotePollingAssignment[]
+}
+
+// ---------------------------------------------------------------------------
+// Elections and candidates
+// ---------------------------------------------------------------------------
+
+model Election {
+  id        String            @id @default(uuid())
+  code      String            @unique
+  name      String
+  lifecycle ElectionLifecycle @default(CONFIGURED)
+  startsAt  DateTime
+  endsAt    DateTime
+  createdAt DateTime          @default(now())
+
+  constituencies           ElectionConstituency[]
+  candidates               Candidate[]
+  voterStatuses            VoterElectionStatus[]
+  remotePollingRequests    RemotePollingRequest[]
+  remotePollingAssignments RemotePollingAssignment[]
+  submittedBallots         SubmittedBallot[]
+}
+
+/// Join table: an election covers a set of constituencies.
+model ElectionConstituency {
+  electionId     String
+  constituencyId String
+
+  election     Election     @relation(fields: [electionId], references: [id])
+  constituency Constituency @relation(fields: [constituencyId], references: [id])
+
+  candidates Candidate[]
+
+  @@id([electionId, constituencyId])
+}
+
+/// A candidate stands in exactly one constituency of one election. The
+/// composite foreign key guarantees the constituency is part of the election.
+model Candidate {
+  id             String @id @default(uuid())
+  fullName       String
+  symbol         String?
+  electionId     String
+  constituencyId String
+
+  election             Election             @relation(fields: [electionId], references: [id])
+  constituency         Constituency         @relation(fields: [constituencyId], references: [id])
+  electionConstituency ElectionConstituency @relation(fields: [electionId, constituencyId], references: [electionId, constituencyId])
+
+  @@unique([electionId, constituencyId, fullName])
+}
+
+// ---------------------------------------------------------------------------
+// Ballots — the secrecy boundary
+// ---------------------------------------------------------------------------
+
+/// Identity side: records THAT a voter voted in an election. The unique
+/// constraint enforces one ballot per voter per election at the database,
+/// which is what rejects duplicate submissions under concurrency.
+model VoterElectionStatus {
+  id         String    @id @default(uuid())
+  voterId    String
+  electionId String
+  hasVoted   Boolean   @default(false)
+  votedAt    DateTime?
+
+  voter    Voter    @relation(fields: [voterId], references: [id])
+  election Election @relation(fields: [electionId], references: [id])
+
+  @@unique([voterId, electionId])
+}
+
+/// Choice side: records WHAT was chosen. No voter field and no relation to
+/// any identity model — the join does not exist. Referred to everywhere by
+/// its opaque ballot reference.
+model SubmittedBallot {
+  /// Random, non-sequential identifier. Carries no voter information.
+  ballotReference String   @id
+  electionId      String
+  constituencyId  String
+  /// AES-256-GCM components of the encrypted candidate choice.
+  nonce           Bytes
+  ciphertext      Bytes
+  authTag         Bytes
+  submittedAt     DateTime @default(now())
+
+  election     Election     @relation(fields: [electionId], references: [id])
+  constituency Constituency @relation(fields: [constituencyId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Remote polling
+// ---------------------------------------------------------------------------
+
+/// A voter's application to use a remote polling centre for a given election.
+/// At most one active (PENDING or UNDER_REVIEW) request per voter per
+/// election — enforced by a partial unique index in the migration.
+model RemotePollingRequest {
+  id              String                     @id @default(uuid())
+  voterId         String
+  electionId      String
+  /// The requested remote polling centre. Never a constituency.
+  pollingCentreId String
+  /// The voter's reason for requesting remote polling.
+  reason          String?
+  /// The reviewing officer's note. Required on REJECTED — the refusal reason
+  /// is stored and shown to the voter.
+  reviewNote      String?
+  status          RemotePollingRequestStatus @default(PENDING)
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime                   @default(now())
+
+  voter         Voter                  @relation(fields: [voterId], references: [id])
+  election      Election               @relation(fields: [electionId], references: [id])
+  pollingCentre PollingCentre          @relation(fields: [pollingCentreId], references: [id])
+  reviewedBy    Officer?               @relation("ReviewingOfficer", fields: [reviewedById], references: [id])
+  assignment    RemotePollingAssignment?
+}
+
+/// The approved result of a remote polling request. Grants permission to
+/// appear at one named remote polling centre for one named election. It never
+/// alters the voter's registered constituency — and carries no constituency
+/// field, so the invariant is visible in the schema.
+model RemotePollingAssignment {
+  id              String   @id @default(uuid())
+  /// The request this assignment approved. Unique: at most one assignment
+  /// per request.
+  requestId       String   @unique
+  voterId         String
+  electionId      String
+  pollingCentreId String
+  assignedById    String
+  createdAt       DateTime @default(now())
+
+  request       RemotePollingRequest @relation(fields: [requestId], references: [id])
+  voter         Voter                @relation(fields: [voterId], references: [id])
+  election      Election             @relation(fields: [electionId], references: [id])
+  pollingCentre PollingCentre        @relation(fields: [pollingCentreId], references: [id])
+  assignedBy    Officer              @relation("AssigningOfficer", fields: [assignedById], references: [id])
+
+  @@unique([voterId, electionId])
+}
+
+// ---------------------------------------------------------------------------
+// Authentication
+// ---------------------------------------------------------------------------
+
+/// Mock OTP challenge. The OTP is stored bcrypt-hashed, expires after five
+/// minutes, is consumed on successful verification, and is invalidated after
+/// five failed attempts.
+model OtpChallenge {
+  id           String    @id @default(uuid())
+  /// Opaque reference returned to the client. The OTP itself never leaves
+  /// the server outside the development-only log line.
+  challengeId  String    @unique
+  voterId      String
+  otpHash      String
+  expiresAt    DateTime
+  attemptCount Int       @default(0)
+  consumedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  voter Voter @relation(fields: [voterId], references: [id])
+}
+
+/// Server-side session record backing every JWT. The auth middleware checks
+/// this record so a session can be revoked without waiting for token expiry.
+model Session {
+  /// Also carried as the JWT `jti` claim.
+  id        String    @id @default(uuid())
+  actorType ActorType
+  officerId String?
+  voterId   String?
+  /// Role snapshot at issue time (officer role, or VOTER).
+  role      String
+  issuedAt  DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  officer Officer? @relation("OfficerSessions", fields: [officerId], references: [id])
+  voter   Voter?   @relation("VoterSessions", fields: [voterId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+/// One state-changing operation: the actor, the timestamp, and a reference to
+/// the operation. Never contains passwords, OTPs, encryption keys, or
+/// decrypted candidate choices. Written by services as a side effect, never
+/// through an API route.
+model AuditRecord {
+  id         String    @id @default(uuid())
+  actorType  ActorType
+  /// Officer ID, voter ID, or null for system actions.
+  actorId    String?
+  action     String
+  entityType String?
+  /// Opaque reference to the affected entity (e.g. a ballot reference).
+  entityRef  String?
+  createdAt  DateTime  @default(now())
+}

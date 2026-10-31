@@ -1,0 +1,513 @@
+<!-- EXPANDED SECTIONS FOR ADDITIONAL CONTENT -->
+
+<div class="page" style="padding: 20mm; margin: 0; page-break-inside: avoid;">
+    <h1>Extended Section: Backend Module Architecture</h1>
+    <h2>Module Layering and Dependency Graph</h2>
+    <p>The Vote Anywhere backend follows a strict modular architecture with clear separation of concerns. Each module is independently testable and deployable. The dependency graph flows from domain models upward through services to controllers.</p>
+    
+    <h3>Layer 1: Models (Domain Layer)</h3>
+    <p>Prisma schema defines the core domain entities:</p>
+    <ul>
+        <li><strong>User:</strong> Base class for voters and officers (discriminated union)</li>
+        <li><strong>Voter:</strong> Extends User, contains eligibility data, constituency registration</li>
+        <li><strong>Officer:</strong> Extends User, contains role, permissions, session tracking</li>
+        <li><strong>Election:</strong> Election metadata, lifecycle state, voting windows</li>
+        <li><strong>Candidate:</strong> Candidate details, symbol, party, constituency link</li>
+        <li><strong>RemotePollingRequest:</strong> Request lifecycle with state machine</li>
+        <li><strong>Ballot:</strong> Ballot reference, voter link (for duplicate checking)</li>
+        <li><strong>BallotSubmission:</strong> Encrypted choice, NO voter link (ballot reference only)</li>
+        <li><strong>AuditTrail:</strong> Immutable log entries, role-based access control</li>
+        <li><strong>Session:</strong> JWT session tracking, login/logout management</li>
+    </ul>
+    
+    <h3>Layer 2: Repository (Data Access Layer)</h3>
+    <p>Repositories provide CRUD operations and complex queries with transaction support:</p>
+    <ul>
+        <li><strong>VoterRepository:</strong> Load voter by ID, check eligibility, update status</li>
+        <li><strong>ElectionRepository:</strong> Find active elections, list candidates by constituency</li>
+        <li><strong>BallotRepository:</strong> Create ballot skeleton, check for duplicates, submit choice</li>
+        <li><strong>RemotePollingRepository:</strong> Query requests by state, filter by officer scope</li>
+        <li><strong>AuditRepository:</strong> Append audit record (INSERT only, never UPDATE/DELETE)</li>
+        <li><strong>SessionRepository:</strong> Create/verify/delete sessions, check JWT validity</li>
+    </ul>
+    
+    <h3>Layer 3: Services (Business Logic Layer)</h3>
+    <p>Services orchestrate repositories and enforce business rules:</p>
+    <ul>
+        <li><strong>AuthService:</strong> OTP generation/verification, password hashing, JWT signing</li>
+        <li><strong>VoterService:</strong> Eligibility checks, status transitions, Core Rule enforcement</li>
+        <li><strong>ElectionService:</strong> Create elections, publish/close, candidate management</li>
+        <li><strong>RemotePollingService:</strong> Request workflow state machine, approval logic</li>
+        <li><strong>BallotService:</strong> Generate ballot, encrypt/decrypt choices, submit with duplicate check</li>
+        <li><strong>EncryptionService:</strong> AES-256-GCM encrypt/decrypt, key management</li>
+        <li><strong>AuditService:</strong> Log operations, enforce access control, prevent tampering</li>
+    </ul>
+    
+    <h3>Layer 4: Controllers (API Layer)</h3>
+    <p>Express controllers handle HTTP requests, parse input, and delegate to services:</p>
+    <ul>
+        <li><strong>AuthController:</strong> /api/auth/* endpoints (OTP, login, logout)</li>
+        <li><strong>VoterController:</strong> /api/voters/* endpoints (profile, eligibility)</li>
+        <li><strong>ElectionController:</strong> /api/elections/* endpoints (CRUD, candidates)</li>
+        <li><strong>RemotePollingController:</strong> /api/remote-polling/* (requests, review, approval)</li>
+        <li><strong>BallotController:</strong> /api/ballots/* (generate, submit, confirmation)</li>
+        <li><strong>AuditController:</strong> /api/audit-trail/* (read-only access to records)</li>
+    </ul>
+    
+    <h3>Middleware Stack</h3>
+    <p>Request processing pipeline in order:</p>
+    <ol>
+        <li><strong>Logger Middleware:</strong> Log all requests (without sensitive data)</li>
+        <li><strong>CORS Middleware:</strong> Validate origin, allow frontend requests</li>
+        <li><strong>BodyParser Middleware:</strong> Parse JSON/form data</li>
+        <li><strong>CSRF Protection Middleware:</strong> Verify CSRF token on state-changing requests</li>
+        <li><strong>Auth Middleware:</strong> Extract JWT, verify signature, validate session</li>
+        <li><strong>Authorization Middleware:</strong> Check role against endpoint requirements</li>
+        <li><strong>Rate Limiter Middleware:</strong> Enforce OTP request limits, login attempts</li>
+        <li><strong>Error Handler Middleware:</strong> Catch exceptions, format error responses</li>
+    </ol>
+</div>
+
+<div class="page" style="padding: 20mm; margin: 0; page-break-inside: avoid;">
+    <h1>Extended Section: Database Constraints and Transactions</h1>
+    <h2>UNIQUE Constraints with Deferrable Behavior</h2>
+    <p>The duplicate ballot submission prevention uses a sophisticated database constraint:</p>
+    <pre>
+ALTER TABLE ballot_submissions
+ADD CONSTRAINT unique_submission UNIQUE (voter_id, election_id) 
+DEFERRABLE INITIALLY DEFERRED;
+    </pre>
+    <p>This constraint is DEFERRED until transaction commit time, allowing batch operations but preventing duplicate final commits. Example transaction:</p>
+    <pre>
+BEGIN TRANSACTION;
+  -- Multiple ballot submissions in parallel
+  INSERT INTO ballots (ballot_reference, voter_id, election_id, ...) VALUES (...);
+  INSERT INTO ballot_submissions (ballot_reference, encrypted_choice, ...) VALUES (...);
+  
+  INSERT INTO ballots (ballot_reference, voter_id, election_id, ...) VALUES (...);
+  -- This will conflict with first ballot, but constraint is deferred
+  INSERT INTO ballot_submissions (ballot_reference, encrypted_choice, ...) VALUES (...);
+COMMIT;
+-- At commit time, database checks UNIQUE constraint
+-- Second insertion fails, entire transaction rolled back
+-- No partial state corruption possible
+    </pre>
+    
+    <h2>Foreign Key Cascades</h2>
+    <table>
+        <tr><th>Parent Table</th><th>Child Table</th><th>Cascade Behavior</th><th>Reason</th></tr>
+        <tr><td>elections</td><td>candidates</td><td>CASCADE DELETE</td><td>When election deleted, remove all candidates</td></tr>
+        <tr><td>voters</td><td>ballots</td><td>CASCADE DELETE</td><td>When voter record deleted, remove their ballots</td></tr>
+        <tr><td>ballots</td><td>ballot_submissions</td><td>CASCADE DELETE</td><td>When ballot deleted, remove submission</td></tr>
+        <tr><td>remote_polling_requests</td><td>assignments</td><td>CASCADE DELETE</td><td>When request deleted, remove assignment</td></tr>
+        <tr><td>users</td><td>sessions</td><td>CASCADE DELETE</td><td>When user deleted, invalidate all sessions</td></tr>
+    </table>
+    
+    <h2>CHECK Constraints</h2>
+    <ul>
+        <li><strong>election.voting_end > voting_start</strong> - Ensure valid voting window</li>
+        <li><strong>voter.birth_date IS NOT NULL AND voter.age >= 18</strong> - Age eligibility</li>
+        <li><strong>candidate.election_id = candidate.constituency.election_id</strong> - Candidate belongs to correct election</li>
+        <li><strong>remote_polling_request.preferred_centre != voter.registered_centre</strong> - Can't request to vote at registered centre</li>
+    </ul>
+    
+    <h2>NOT NULL Constraints on Security-Sensitive Fields</h2>
+    <table>
+        <tr><th>Field</th><th>Table</th><th>Why NOT NULL</th></tr>
+        <tr><td>password_hash</td><td>users (officers)</td><td>Every officer must have a password</td></tr>
+        <tr><td>voter_id</td><td>ballots</td><td>Every ballot links to a voter (for duplicate checking)</td></tr>
+        <tr><td>encrypted_choice</td><td>ballot_submissions</td><td>Every submission must have choice</td></tr>
+        <tr><td>action</td><td>audit_trail</td><td>Every audit record documents an action</td></tr>
+        <tr><td>timestamp</td><td>audit_trail</td><td>Every record has a timestamp</td></tr>
+    </table>
+    
+    <h2>Transaction Isolation Levels</h2>
+    <p>Different operations use different isolation levels to balance consistency and performance:</p>
+    <ul>
+        <li><strong>Ballot Submission (READ COMMITTED):</strong> Can see committed changes, sufficient for availability check</li>
+        <li><strong>Duplicate Check (SERIALIZABLE):</strong> Strict isolation prevents race conditions on final UNIQUE check</li>
+        <li><strong>Election State Transitions (REPEATABLE READ):</strong> Prevent dirty reads, allow phantom reads (acceptable for status updates)</li>
+        <li><strong>Audit Reads (READ UNCOMMITTED):</strong> Fastest reads for audit queries, safe since audit records are append-only</li>
+    </ul>
+</div>
+
+<div class="page" style="padding: 20mm; margin: 0; page-break-inside: avoid;">
+    <h1>Extended Section: Encryption Implementation Details</h1>
+    <h2>AES-256-GCM Algorithm Specification</h2>
+    <p>Authenticated encryption ensures both confidentiality and integrity of ballot choices:</p>
+    <ul>
+        <li><strong>Algorithm:</strong> AES (Advanced Encryption Standard)</li>
+        <li><strong>Mode:</strong> GCM (Galois/Counter Mode)</li>
+        <li><strong>Key Size:</strong> 256 bits (32 bytes)</li>
+        <li><strong>IV (Initialization Vector):</strong> 96 bits (12 bytes), randomly generated per encryption</li>
+        <li><strong>Auth Tag:</strong> 128 bits (16 bytes), computed over ciphertext + IV</li>
+        <li><strong>Plaintext:</strong> Variable length (ballot reference + candidate ID + timestamp)</li>
+    </ul>
+    
+    <h2>Encryption Workflow</h2>
+    <pre>
+Step 1: Load encryption key from environment
+  key = base64_decode(process.env.ENCRYPTION_KEY)
+  // Must be 32 bytes for AES-256
+
+Step 2: Generate random IV
+  iv = crypto.randomBytes(12)
+  // 96 bits recommended for GCM
+
+Step 3: Prepare plaintext
+  plaintext = JSON.stringify({
+    ballot_reference: "550e8400-e29b-41d4-a716-446655440000",
+    candidate_id: "cand_2024_001",
+    timestamp: "2024-10-31T11:40:00Z",
+    voter_id: voter_id  // NOT stored in database, only used for encryption
+  })
+
+Step 4: Create cipher
+  cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
+  
+Step 5: Encrypt
+  ciphertext = cipher.update(plaintext, 'utf8', 'hex')
+  ciphertext += cipher.final('hex')
+
+Step 6: Get authentication tag
+  auth_tag = cipher.getAuthTag()
+
+Step 7: Store encrypted package
+  {
+    iv: iv.toString('hex'),
+    ciphertext: ciphertext,
+    auth_tag: auth_tag.toString('hex'),
+    algorithm: 'aes-256-gcm'
+  }
+    </pre>
+    
+    <h2>Decryption Workflow (Ballot Counting Only)</h2>
+    <pre>
+Step 1: Load encryption key
+  key = base64_decode(process.env.ENCRYPTION_KEY)
+
+Step 2: Extract encrypted package from database
+  encrypted_package = {
+    iv: "a1b2c3d4e5f6...",
+    ciphertext: "xyz123abc...",
+    auth_tag: "tag123..."
+  }
+
+Step 3: Create decipher
+  decipher = crypto.createDecipheriv(
+    'aes-256-gcm', 
+    key, 
+    Buffer.from(encrypted_package.iv, 'hex')
+  )
+
+Step 4: Set auth tag BEFORE decryption
+  decipher.setAuthTag(Buffer.from(encrypted_package.auth_tag, 'hex'))
+
+Step 5: Attempt decryption
+  try {
+    plaintext = decipher.update(encrypted_package.ciphertext, 'hex', 'utf8')
+    plaintext += decipher.final('utf8')
+  } catch(err) {
+    // Authentication failed - ciphertext was tampered
+    throw new Error('Ballot integrity check failed')
+  }
+
+Step 6: Parse and validate
+  choice = JSON.parse(plaintext)
+  // Now can count the vote (but never log or store with voter ID)
+    </pre>
+    
+    <h2>Key Rotation Strategy</h2>
+    <p>When encryption keys are rotated:</p>
+    <ol>
+        <li>Generate new key with high entropy (32 bytes)</li>
+        <li>Store both old and new keys in AWS Secrets Manager</li>
+        <li>Mark old key as deprecated but keep it for decryption</li>
+        <li>All new encryptions use new key</li>
+        <li>All decryptions try new key first, fall back to old key if tag verification fails</li>
+        <li>Over time, re-encrypt old ballots with new key (optional, for audit purposes)</li>
+        <li>After audit period (2+ years), securely delete old key</li>
+    </ol>
+    
+    <h2>Security Properties of AES-256-GCM</h2>
+    <ul>
+        <li><strong>Confidentiality:</strong> AES-256 provides semantic security (identical plaintexts produce different ciphertexts due to random IV)</li>
+        <li><strong>Integrity:</strong> GCM authentication tag detects any modification of ciphertext</li>
+        <li><strong>Authenticity:</strong> Only holder of key can create valid tag</li>
+        <li><strong>Non-malleability:</strong> Adversary cannot modify ciphertext and produce valid tag without key</li>
+        <li><strong>Resistance to side-channel attacks:</strong> Constant-time operations in crypto libraries prevent timing attacks</li>
+    </ul>
+</div>
+
+<div class="page" style="padding: 20mm; margin: 0; page-break-inside: avoid;">
+    <h1>Extended Section: Rate Limiting and DDoS Protection</h1>
+    <h2>OTP Request Rate Limiting</h2>
+    <p>Redis-backed rate limiter prevents brute-force attacks on OTP endpoints:</p>
+    <pre>
+Endpoint: POST /api/auth/voter/otp-request
+Rate Limit: 5 OTP requests per phone number per hour
+
+Implementation:
+  key = "otp_request:" + phone_number
+  count = redis.incr(key)
+  if count == 1:
+    redis.expire(key, 3600)  // 1 hour TTL
+  if count > 5:
+    response = 429 Too Many Requests
+    retry_after = redis.ttl(key) seconds
+    </pre>
+    
+    <h2>Login Attempt Rate Limiting</h2>
+    <table>
+        <tr><th>Attempt Count</th><th>Action</th><th>Duration</th></tr>
+        <tr><td>1-3 failed</td><td>Allow retry</td><td>---</td></tr>
+        <tr><td>4 failed</td><td>CAPTCHA required</td><td>---</td></tr>
+        <tr><td>5+ failed</td><td>Temporary lockout</td><td>15 minutes</td></tr>
+        <tr><td>10+ failed in 1 hour</td><td>Extended lockout</td><td>1 hour</td></tr>
+        <tr><td>20+ failed in 24 hours</td><td>Manual review required</td><td>Account locked</td></tr>
+    </table>
+    
+    <h2>API Endpoint Rate Limiting</h2>
+    <pre>
+General endpoints:     100 requests per minute per IP
+Authentication endpoints: 20 requests per minute per IP
+Ballot submission:     5 requests per user per election
+Election creation:     10 requests per admin per hour
+Audit trail queries:   50 requests per auditor per hour
+    </pre>
+    
+    <h2>DDoS Protection Layers</h2>
+    <ul>
+        <li><strong>CloudFlare DDoS Protection:</strong> Filters malicious traffic at CDN edge</li>
+        <li><strong>AWS Shield Standard:</strong> Automatic protection against common DDoS attacks</li>
+        <li><strong>AWS Shield Advanced:</strong> 24/7 DDoS Response Team, custom rules</li>
+        <li><strong>Application-Level Rate Limiting:</strong> Redis-backed per-endpoint limits</li>
+        <li><strong>Connection Pooling:</strong> Database connection limits prevent resource exhaustion</li>
+        <li><strong>Timeout Management:</strong> Slow requests killed after 30 seconds</li>
+    </ul>
+</div>
+
+<div class="page" style="padding: 20mm; margin: 0; page-break-inside: avoid;">
+    <h1>Extended Section: Frontend State Management Deep Dive</h1>
+    <h2>Redux Store Structure</h2>
+    <pre>
+store/
+├── slices/
+│   ├── authSlice.ts           // user, token, session state
+│   ├── voterSlice.ts          // profile, eligibility, status
+│   ├── electionsSlice.ts      // active elections, candidates
+│   ├── remotePollSlice.ts     // requests, approval status
+│   ├── ballotSlice.ts         // current ballot, submission status
+│   ├── auditSlice.ts          // audit records (read-only)
+│   └── uiSlice.ts             // loading states, modals, errors
+├── selectors/
+│   ├── authSelectors.ts       // isLoggedIn, currentUser, etc.
+│   ├── ballotSelectors.ts     // isVotingAllowed, hasVoted, etc.
+│   └── ...
+├── middleware/
+│   ├── authMiddleware.ts      // JWT refresh, session validation
+│   └── apiMiddleware.ts       // API call error handling
+└── store.ts
+    </pre>
+    
+    <h2>Async Thunks for API Calls</h2>
+    <ul>
+        <li><strong>fetchVoterProfile</strong> - GET /api/voters/:voterId</li>
+        <li><strong>checkEligibility</strong> - GET /api/voters/:voterId/eligibility</li>
+        <li><strong>createRemotePollingRequest</strong> - POST /api/remote-polling/request</li>
+        <li><strong>submitRemotePollingRequest</strong> - POST /api/remote-polling/requests/:id/submit</li>
+        <li><strong>generateBallot</strong> - POST /api/ballots/generate</li>
+        <li><strong>submitBallot</strong> - POST /api/ballots/:reference/submit</li>
+        <li><strong>fetchAuditRecords</strong> - GET /api/audit-trail/voter/:voterId</li>
+    </ul>
+    
+    <h2>Optimistic Updates for UX</h2>
+    <p>When user submits a ballot, update UI immediately before server response arrives:</p>
+    <pre>
+// User clicks "Submit Ballot"
+dispatch(submitBallot({
+  ballotReference,
+  encryptedChoice
+}))
+
+// Thunk implementation:
+async (args) => {
+  // 1. Optimistic update (immediate)
+  dispatch(setBallotStatus('submitted'))
+  
+  // 2. API call (background)
+  const response = await api.post('/ballots/.../submit', {
+    encryptedChoice
+  })
+  
+  // 3. Confirm or rollback
+  if (response.ok) {
+    dispatch(setBallotConfirmed(response.data))
+  } else {
+    dispatch(setBallotStatus('error'))  // Rollback
+  }
+}
+    </pre>
+</div>
+
+<div class="page" style="padding: 20mm; margin: 0; page-break-inside: avoid;">
+    <h1>Extended Section: Error Handling and Recovery</h1>
+    <h2>Backend Error Classification</h2>
+    <table>
+        <tr><th>Status Code</th><th>Meaning</th><th>Example</th><th>Action</th></tr>
+        <tr><td>400</td><td>Bad Request</td><td>Missing required field</td><td>Show form validation error</td></tr>
+        <tr><td>401</td><td>Unauthorized</td><td>JWT expired/invalid</td><td>Prompt login</td></tr>
+        <tr><td>403</td><td>Forbidden</td><td>Insufficient permissions</td><td>Show permission error</td></tr>
+        <tr><td>404</td><td>Not Found</td><td>Ballot doesn't exist</td><td>Show 404 page</td></tr>
+        <tr><td>409</td><td>Conflict</td><td>Already voted</td><td>Show "already submitted" message</td></tr>
+        <tr><td>429</td><td>Too Many Requests</td><td>Rate limit exceeded</td><td>Show retry-after timer</td></tr>
+        <tr><td>500</td><td>Internal Server Error</td><td>Database crash</td><td>Show generic error, log to Sentry</td></tr>
+        <tr><td>503</td><td>Service Unavailable</td><td>Maintenance mode</td><td>Show maintenance notice</td></tr>
+    </table>
+    
+    <h2>Network Retry Strategy</h2>
+    <pre>
+Configuration:
+  maxRetries: 3
+  initialDelayMs: 1000  (1 second)
+  maxDelayMs: 10000     (10 seconds)
+  backoffMultiplier: 2  (exponential)
+
+Algorithm (exponential backoff with jitter):
+  for attempt in 1..maxRetries:
+    try:
+      result = makeRequest()
+      return result
+    catch error:
+      if error.isRetryable():  // 5xx, timeout, network error
+        delay = min(initialDelayMs * (2 ^ attempt), maxDelayMs)
+        jitter = random(0, delay * 0.1)  // 10% jitter
+        await sleep(delay + jitter)
+      else:
+        throw error  // Don't retry 4xx errors
+    </pre>
+    
+    <h2>Error Boundaries in React</h2>
+    <pre>
+&lt;ErrorBoundary&gt;
+  &lt;VoterPortal&gt;
+    &lt;ErrorBoundary&gt;
+      &lt;BallotPage /&gt;
+    &lt;/ErrorBoundary&gt;
+    
+    &lt;ErrorBoundary&gt;
+      &lt;RemotePollingPage /&gt;
+    &lt;/ErrorBoundary&gt;
+  &lt;/VoterPortal&gt;
+&lt;/ErrorBoundary&gt;
+
+// If BallotPage crashes, only it is unmounted
+// RemotePollingPage and navigation continue working
+// Error logged to Sentry for debugging
+    </pre>
+</div>
+
+<div class="page" style="padding: 20mm; margin: 0; page-break-inside: avoid;">
+    <h1>Extended Section: Monitoring and Observability</h1>
+    <h2>Application Metrics</h2>
+    <table>
+        <tr><th>Metric</th><th>Type</th><th>Alert Threshold</th><th>Severity</th></tr>
+        <tr><td>Request latency (p99)</td><td>Histogram</td><td>> 1 second</td><td>Warning</td></tr>
+        <tr><td>Error rate</td><td>Counter</td><td>> 1%</td><td>Alert</td></tr>
+        <tr><td>OTP verification failures</td><td>Counter</td><td>> 50/hour</td><td>Info</td></tr>
+        <tr><td>Ballot submissions/min</td><td>Gauge</td><td>< 1 (inactive election)</td><td>Info</td></tr>
+        <tr><td>Database query time (p95)</td><td>Histogram</td><td>> 500ms</td><td>Warning</td></tr>
+        <tr><td>Cache hit ratio</td><td>Gauge</td><td>< 80%</td><td>Info</td></tr>
+        <tr><td>JWT refresh rate</td><td>Counter</td><td>Baseline comparison</td><td>Anomaly detection</td></tr>
+    </table>
+    
+    <h2>Structured Logging</h2>
+    <p>All logs include context without sensitive data:</p>
+    <pre>
+{
+  "timestamp": "2024-10-31T11:40:00.000Z",
+  "level": "INFO",
+  "service": "backend",
+  "event": "ballot_submitted",
+  "session_id": "sess_abc123...",  // NOT voter_id
+  "election_id": "election_2024_general",
+  "response_time_ms": 245,
+  "user_role": "voter",
+  "ip_address": "192.168.1.100",  // For DDoS detection
+  "user_agent": "Mozilla/5.0..."
+}
+    </pre>
+    
+    <h2>Distributed Tracing</h2>
+    <p>Every request gets a trace ID for end-to-end tracking:</p>
+    <ol>
+        <li>Frontend generates trace ID (or inherits from header)</li>
+        <li>Sends trace ID with every API request</li>
+        <li>Backend logs trace ID in every operation</li>
+        <li>Database queries include trace ID</li>
+        <li>Redis operations tagged with trace ID</li>
+        <li>Errors auto-linked to trace for debugging</li>
+    </ol>
+    
+    <h2>Alerting Dashboard</h2>
+    <ul>
+        <li><strong>Real-time:</strong> Error rate, latency spikes, DDoS indicators</li>
+        <li><strong>Hourly:</strong> OTP request patterns, ballot submission rates</li>
+        <li><strong>Daily:</strong> User growth, election participation stats</li>
+        <li><strong>Weekly:</strong> Performance trends, security incident review</li>
+    </ul>
+</div>
+
+<div class="page" style="padding: 20mm; margin: 0; page-break-inside: avoid;">
+    <h1>Extended Section: Security Incident Response</h1>
+    <h2>Incident Classification</h2>
+    <table>
+        <tr><th>Severity</th><th>Description</th><th>Response Time</th><th>Escalation</th></tr>
+        <tr><td>P1 (Critical)</td><td>Election integrity compromised</td><td>Immediate</td><td>Election Commission</td></tr>
+        <tr><td>P2 (High)</td><td>Data breach, voter privacy leaked</td><td>15 minutes</td><td>Chief Security Officer</td></tr>
+        <tr><td>P3 (Medium)</td><td>Security vulnerability discovered</td><td>1 hour</td><td>Security team</td></tr>
+        <tr><td>P4 (Low)</td><td>Minor security issue, no data risk</td><td>24 hours</td><td>Backlog</td></tr>
+    </table>
+    
+    <h2>Incident Response Playbook</h2>
+    <h3>Data Breach Scenario</h3>
+    <ol>
+        <li><strong>Detection:</strong> Anomalous database access patterns detected by CloudWatch</li>
+        <li><strong>Containment:</strong> Kill suspicious connections, revoke compromised credentials</li>
+        <li><strong>Investigation:</strong> Query audit trail, identify accessed records</li>
+        <li><strong>Notification:</strong> If voter data compromised, notify affected users within 24 hours</li>
+        <li><strong>Remediation:</strong> Implement access control fix, re-deploy backend</li>
+        <li><strong>Recovery:</strong> Run backup restore if needed, validate data integrity</li>
+        <li><strong>Post-Incident Review:</strong> Root cause analysis, process improvements</li>
+    </ol>
+    
+    <h2>Ballot Integrity Verification</h2>
+    <p>If election integrity questioned, perform cryptographic audit:</p>
+    <ol>
+        <li>Export all ballot_submissions from database</li>
+        <li>For each submission, attempt decryption with current key</li>
+        <li>Verify authentication tag (detects tampering)</li>
+        <li>Count votes by candidate</li>
+        <li>Compare against published results</li>
+        <li>Generate cryptographic proof of count (signed by Election Administrator)</li>
+    </ol>
+    
+    <h2>Audit Trail Forensics</h2>
+    <pre>
+Query: Find all changes to election_2024_general
+SELECT * FROM audit_trail 
+WHERE election_id = 'election_2024_general'
+AND action IN ('election_created', 'election_published', 'candidate_added', ...)
+ORDER BY timestamp DESC
+LIMIT 1000;
+
+Expected timeline:
+  2024-10-01 08:00 - election_created by admin_1
+  2024-10-05 14:30 - candidate_added (x 100) by admin_1
+  2024-10-15 10:00 - election_published by admin_2
+  2024-10-15 10:01 - voter_otp_requested (start of voting)
+  ...
+  2024-10-30 18:00 - election_closed by admin_2
+    </pre>
+</div>
+

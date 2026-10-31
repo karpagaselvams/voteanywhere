@@ -1,0 +1,38 @@
+---
+description: Core invariants and scope boundaries for the Vote Anywhere remote polling simulator
+---
+# Vote Anywhere Core Rules
+
+Vocabulary: [GLOSSARY.md](../../GLOSSARY.md). Specification: [README.md](../../README.md).
+
+## The Core Rule
+
+A remote polling centre changes **where** a voter votes. It never changes the voter's registered constituency or the ballot they receive.
+
+```ts
+// ❌ BAD — constituency taken from where the voter is standing
+const ballot = await buildBallot(assignment.pollingCentre.constituencyId);
+
+// ✅ GOOD — constituency taken from the voter's registration
+const ballot = await buildBallot(voter.registeredConstituencyId);
+```
+
+## Ballot secrecy
+
+Never place a candidate choice beside a voter identifier — not in an API response, a log line, a database view, or an audit record. Refer to submitted ballots only by their opaque ballot reference.
+
+## Never log or persist in plaintext
+
+Passwords, OTPs, JWT secrets, the ballot encryption key, and decrypted candidate choices.
+
+## Fictional data only
+
+Voters, constituencies, polling centres, candidates, and elections are invented. No real electoral roll, Election Commission of India, Aadhaar, biometric, or government data or API.
+
+## Claims this project must not make
+
+Do not write code, comments, docs, or commit messages asserting distributed consensus, quorum, a multi-node election network, production election security, or certified election infrastructure. There is exactly one Election Simulator, and it is a backend module.
+
+## Authorization
+
+Enforced in backend middleware. Hiding a page or a button in the frontend is not authorization.
