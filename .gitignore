@@ -20,3 +20,6 @@ dist/
 *.p12
 *.jks
 EOF
+# Python bytecode from the report build scripts
+__pycache__/
+*.pyc

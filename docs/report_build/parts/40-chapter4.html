@@ -1,0 +1,1160 @@
+<div class="page">
+    <!--TOC:chapter:CHAPTER 4: SYSTEM DESIGN-->
+    <h1 class="chapter-title">CHAPTER 4<br>SYSTEM DESIGN</h1>
+
+    <!--TOC:sub:4.1 Design Overview-->
+    <h2>4.1 Design Overview</h2>
+    <p>Design is where a requirement becomes a structure. The requirements in Section 3.6 say that the correct ballot must be served and that secrecy must survive the remote act; this chapter says how, in terms of modules, data flows, classes and tables. It is the longest chapter of the report because it carries the argument the project is making.</p>
+
+    <h3>4.1.1 Design Principles</h3>
+    <p>Six principles governed every structural decision. They are stated first because each later choice can be traced to one of them.</p>
+    <p><b>P1 &mdash; Make the invariant unrepresentable, not merely checked.</b> If the wrong value cannot be expressed, no check is required. This principle explains why <code>generateBallot</code> takes a <code>Voter</code>, why the assignment model has no constituency field, and why the choice table has no voter column.</p>
+    <p><b>P2 &mdash; Put consistency where concurrency happens.</b> A check in application code is correct only until two requests arrive together. Anything that must be true across concurrent writers belongs in the database: a unique constraint, a partial index, a foreign key or a transaction.</p>
+    <p><b>P3 &mdash; One legal path per state change.</b> Rather than scattering conditionals, every request transition passes through a single table and a single guard. Adding an illegal transition then requires editing the table, which is a visible act rather than an accidental omission.</p>
+    <p><b>P4 &mdash; Deny by default.</b> Authorization is an explicit allow-list per route. A role that is not named has no access, so adding a role later grants it nothing by default.</p>
+    <p><b>P5 &mdash; Separate the layers by responsibility, not by ceremony.</b> Routes parse and respond, services decide, repositories persist. There is no Prisma call in a service and no HTTP concern in a repository. The boundary is enforced by review rather than by a framework, and the codebase is small enough for that to work.</p>
+    <p><b>P6 &mdash; The schema is the documentation of last resort.</b> Comments go out of date; constraints do not. Every model in <code>schema.prisma</code> carries a doc comment naming the invariant it protects, so that a reader who opens one file understands the design.</p>
+
+    <h3>4.1.2 Design Constraints and Their Consequences</h3>
+    <!--TAB:4.1:Design constraints and consequences-->
+    <table class="compact">
+        <tr><th style="width:30%;">Constraint</th><th style="width:34%;">Consequence for the design</th><th>Principle</th></tr>
+        <tr><td>Fictional data only; no personal information</td><td>Identity is simulated; a voter number issued by the seed replaces any real identification</td><td>Scope</td></tr>
+        <tr><td>A single developer in one semester</td><td>A modular monolith rather than services; nine modules in one deployable</td><td>P5</td></tr>
+        <tr><td>Constraints must survive concurrency</td><td>Unique indexes and transactions carry the guarantees</td><td>P2</td></tr>
+        <tr><td>No hand-written cryptography</td><td>All primitives come from <code>node:crypto</code>; the project supplies only key, nonce and associated data</td><td>P1</td></tr>
+        <tr><td>Prisma cannot express partial indexes</td><td>One constraint is raw SQL inside a migration, documented as such</td><td>P2</td></tr>
+        <tr><td>The examiners must be able to verify the invariants</td><td>The prose lives in the schema; the tests are named after the invariant</td><td>P6</td></tr>
+    </table>
+    <p class="table-caption">Table 4.1: Design constraints and consequences</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:4.2 System Architecture-->
+    <h2>4.2 System Architecture</h2>
+    <p>The application follows a three-tier layered architecture deployed as a modular monolith. That phrase contains two decisions that should be separated: the layering, which is about responsibility, and the monolith, which is about deployment.</p>
+
+    <h3>4.2.1 The Three Tiers</h3>
+    <p><b>Presentation tier.</b> A React 19 single-page application, written in TypeScript and built by Vite. It holds no business rule that matters. It validates forms for the convenience of the user, guards routes so that a voter does not see officer screens, and renders what the API returns. Every one of these behaviours is a courtesy; the server does not rely on any of them.</p>
+    <p><b>Application tier.</b> One Express 4 process, written in TypeScript, containing nine domain modules. Each module has a router that declares paths and middleware, a service that holds the decisions, a repository that holds the queries and, where input arrives, a Zod schema that validates it at the edge. Cross-cutting concerns &mdash; authentication, authorization, validation, rate limiting and error translation &mdash; are middleware, so they appear in the route declaration rather than inside the logic.</p>
+    <p><b>Data tier.</b> PostgreSQL 16 through Prisma 6. This tier is where the invariants that must survive concurrency actually live. The application asks the database to enforce them and translates the resulting errors into domain errors; it does not re-implement them.</p>
+
+    <h3>4.2.2 Why a Modular Monolith</h3>
+    <p>A microservice architecture was considered and rejected. The argument for rejection is not that microservices are bad; it is that they solve problems this project does not have while creating problems it would have to solve.</p>
+    <!--TAB:4.2:Monolith versus microservices for this project-->
+    <table class="compact">
+        <tr><th style="width:22%;">Consideration</th><th style="width:38%;">Microservices</th><th>Modular monolith (chosen)</th></tr>
+        <tr><td>Transactional integrity</td><td>Approval and assignment would need a distributed transaction or a saga</td><td>A single <code>$transaction</code> makes them atomic</td></tr>
+        <tr><td>Deployment</td><td>Nine services, nine pipelines, service discovery</td><td>One process, one command</td></tr>
+        <tr><td>Cognitive load for a single developer</td><td>High: inter-service contracts become a second codebase</td><td>Low: imports are ordinary imports</td></tr>
+        <tr><td>Scaling</td><td>Per-service scaling</td><td>Whole application scales together &mdash; adequate at this scale</td></tr>
+        <tr><td>Failure modes</td><td>Partial failure, retries, idempotency keys</td><td>A request either succeeds or fails</td></tr>
+        <tr><td>Invariant enforcement</td><td>Each service would be tempted to re-check invariants it does not own</td><td>One schema, one set of constraints</td></tr>
+    </table>
+    <p class="table-caption">Table 4.2: Monolith versus microservices for this project</p>
+    <p>The decisive consideration is transactional integrity. The approval of a remote polling request and the creation of the resulting assignment must both happen or neither; a distributed transaction would introduce a failure mode in which a voter is approved but holds no assignment, which is exactly the state the design exists to prevent. Keeping both writes in one database makes that state unrepresentable, which is principle P1.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.2.3 Architecture Diagram</h3>
+    <p>Figure 4.1 shows the deployed structure and the internal decomposition of the application tier. The bracketed labels name the middleware chain that each request traverses.</p>
+    <!--FIG:4.1:System architecture and module decomposition-->
+    <figure class="figure-box">
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            PRESENTATION TIER                                  │
+│  React 19 · TypeScript 5.7 · Vite 6 · Tailwind CSS 4 · React Router 7         │
+│                                                                              │
+│   ┌───────────────┐    ┌────────────────┐    ┌────────────────┐              │
+│   │ Voter Portal  │    │ Officer Portal │    │  Admin Portal  │              │
+│   │ 5 pages       │    │ 4 pages        │    │  4 pages       │              │
+│   └───────────────┘    └────────────────┘    └────────────────┘              │
+│           │                     │                     │                      │
+│           └─────────────────────┼─────────────────────┘                      │
+│                                 ▼                                            │
+│              services/api.ts  ── Axios instance  ──  /api (same origin)      │
+└─────────────────────────────────┬────────────────────────────────────────────┘
+                                  │  HTTPS · JSON · Bearer token
+┌─────────────────────────────────▼────────────────────────────────────────────┐
+│                            APPLICATION TIER                                   │
+│  Node.js 22 · Express 4 · TypeScript 5.7 · helmet · cors · rate-limit         │
+│                                                                              │
+│  middleware chain:  authenticate → requireRole/requireVoter → validate →     │
+│                     rate limiter → handler → errorHandler → audit            │
+│                                                                              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐ ┌───────────────┐   │
+│  │  auth    │ │  voters  │ │elections │ │remote-polling│ │   ballots     │   │
+│  │ OTP, JWT │ │ profile, │ │ lifecycle│ │ request state│ │ generate,     │   │
+│  │ sessions │ │eligibility│ │ activate │ │ machine      │ │ seal, submit  │   │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────────┘ └───────────────┘   │
+│  ┌──────────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────────────┐     │
+│  │  simulator   │ │ officer  │ │  admin   │ │  audit                   │     │
+│  │ reconcile,   │ │ role-    │ │aggregates│ │ record (write) +         │     │
+│  │ results      │ │ aware    │ │ reports  │ │ records (read)           │     │
+│  └──────────────┘ └──────────┘ └──────────┘ └──────────────────────────┘     │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │  config: env (zod) · prisma client · logger       lib: Result, errors  │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────┬────────────────────────────────────────────┘
+                                  │  Prisma 6 client · pooled connections
+┌─────────────────────────────────▼────────────────────────────────────────────┐
+│                                DATA TIER                                     │
+│                            PostgreSQL 16 (Docker)                            │
+│                                                                              │
+│   14 models · 4 enums · 9 unique indexes · 1 partial unique index            │
+│                                                                              │
+│   identity side          │  choice side            │  administration         │
+│   VoterElectionStatus    │  SubmittedBallot        │  AuditRecord            │
+│   { voterId, electionId }│  { ballotReference,     │  Session                │
+│                          │    nonce, ciphertext,   │  OtpChallenge           │
+│        "THAT"            │    authTag }            │                         │
+│                          │        "WHAT"           │                         │
+│              ── no key, no relation, no join ──                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+    </figure>
+    <p class="figure-caption">Figure 4.1: System architecture and module decomposition</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.2.4 The Request Path</h3>
+    <p>Every authenticated request traverses the same chain, in the same order. Making the order explicit matters because several of the guarantees depend on it.</p>
+    <!--TAB:4.3:Middleware chain and what each stage guarantees-->
+    <table class="compact">
+        <tr><th style="width:6%;">#</th><th style="width:24%;">Stage</th><th style="width:40%;">What it does</th><th>Guarantee</th></tr>
+        <tr><td>1</td><td><code>helmet()</code></td><td>Sets security-related response headers</td><td>Baseline browser protections</td></tr>
+        <tr><td>2</td><td><code>cors()</code></td><td>Permits cross-origin calls from the development frontend</td><td>The browser may call the API</td></tr>
+        <tr><td>3</td><td><code>express.json({limit})</code></td><td>Parses a JSON body up to 100 kB</td><td>Oversized bodies are refused before any handler runs</td></tr>
+        <tr><td>4</td><td>Rate limiter</td><td>Counts attempts per credential and per address</td><td>Guessing is bounded</td></tr>
+        <tr><td>5</td><td><code>validate(schema, source)</code></td><td>Parses body, params or query with Zod and replaces it with the parsed value</td><td>A service receives typed input and never re-parses raw data</td></tr>
+        <tr><td>6</td><td><code>authenticate</code></td><td>Verifies the JWT signature and then loads the session row</td><td>A revoked session fails immediately, not at token expiry</td></tr>
+        <tr><td>7</td><td><code>requireRole</code> / <code>requireVoter</code></td><td>Compares the session role against the explicit allow-list</td><td>Deny by default</td></tr>
+        <tr><td>8</td><td>Handler → service</td><td>Decides and delegates; ownership is read from <code>req.auth</code></td><td>A caller cannot name another user&rsquo;s record</td></tr>
+        <tr><td>9</td><td>Repository</td><td>The only place Prisma is called</td><td>Queries are auditable in one layer</td></tr>
+        <tr><td>10</td><td><code>errorHandler</code></td><td>Converts a <code>DomainError</code> to its status, or logs and returns 500</td><td>No stack trace or constraint name reaches a client</td></tr>
+    </table>
+    <p class="table-caption">Table 4.3: Middleware chain and what each stage guarantees</p>
+    <p>Two details in this chain are worth naming. First, <code>authenticate</code> performs two checks: the JWT signature, which is cheap and stateless, and then a database lookup of the session row, which is neither. The second check is what makes revocation immediate, and it is the reason the system can promise that a deleted session stops working at once rather than in two hours. Second, <code>validate</code> writes the parsed value back onto the request, so that downstream code receives typed data. A service therefore never trims, coerces or re-parses; if a value reaches a service it has already been accepted by the schema.</p>
+
+    <h3>4.2.5 Deployment View</h3>
+    <p>During development, three processes exist. PostgreSQL 16 runs in a Docker container with a named volume and a health check. The backend runs on the host under a watch-mode TypeScript runner, listening on port 4000. The frontend runs on the host under the Vite development server on port 5173, with a proxy that forwards <code>/api</code> to port 4000. The proxy is not a convenience: it means the browser sees one origin, so no cross-origin configuration is needed locally and the production topology &mdash; a reverse proxy serving the built frontend and forwarding the API path &mdash; is the same shape.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:4.3 Data Flow Diagrams-->
+    <h2>4.3 Data Flow Diagrams</h2>
+    <p>Three levels are presented. The context diagram fixes the boundary; the level-1 diagram shows the nine processes and the data stores they share; the level-2 diagram expands the remote polling workflow, which is the process the project exists to model.</p>
+
+    <h3>4.3.1 Context Diagram (Level 0)</h3>
+    <p>The context diagram treats the system as one process and shows only the external entities with which it exchanges data. There are five, of which four are people.</p>
+    <!--FIG:4.2:Context level data flow diagram (Level 0)-->
+    <figure class="figure-box">
+                    ┌─────────────────┐
+                    │      VOTER      │
+                    └────────┬────────┘
+       voter number, OTP     │     dashboard, ballot, receipt
+       centre choice, reason │     request status, rejection note
+       candidate choice      │
+                             ▼
+  ┌──────────────┐   ┌─────────────────────────┐   ┌──────────────┐
+  │ VERIFICATION │──▶│                         │◀──│   ELECTION   │
+  │   OFFICER    │   │                         │   │ ADMINISTRATOR│
+  └──────────────┘   │     VOTE ANYWHERE       │   └──────────────┘
+   decision, reason  │                         │    election lifecycle
+   claim, release    │  A Remote Polling       │    reports, aggregates
+                     │  System Simulator       │
+  ┌──────────────┐   │                         │   ┌──────────────┐
+  │   POLLING    │──▶│                         │──▶│    SYSTEM    │
+  │   CENTRE     │   │                         │   │   AUDITOR    │
+  │   OFFICER    │   └─────────────────────────┘   └──────────────┘
+  └──────────────┘      verification result         audit trail
+   voter number                               reconciliation report
+
+              EXTERNAL ENTITIES NOT CONNECTED (by design)
+   ┌───────────────┐ ┌───────────┐ ┌────────────┐ ┌──────────────┐
+   │ Electoral roll│ │  Aadhaar  │ │ SMS gateway│ │ Government   │
+   │               │ │ biometric │ │            │ │ APIs         │
+   └───────────────┘ └───────────┘ └────────────┘ └──────────────┘
+    </figure>
+    <p class="figure-caption">Figure 4.2: Context level data flow diagram (Level 0)</p>
+    <p>The lower row is part of the diagram rather than an omission. A reviewer should be able to see, in the figure itself, that the system has no connection to a real electoral roll, an identity service, a message gateway or a government API. Drawing the absence makes it a design statement.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.3.2 Level 1 Data Flow Diagram</h3>
+    <p>The nine modules are collapsed into seven processes, because the officer and admin support modules are query surfaces over stores that other processes own. Four data stores appear; the identity side and the choice side are drawn as separate stores with no arrow between them.</p>
+    <!--FIG:4.3:Level 1 data flow diagram-->
+    <figure class="figure-box">
+  VOTER                 OFFICER                        ADMINISTRATOR
+    │                     │                                 │
+    │ credentials         │ claim/approve/reject            │ activate/close
+    ▼                     ▼                                 ▼
+┌────────┐   session  ┌────────────┐  decision   ┌──────────────────┐
+│ 1.0    │───────────▶│ 4.0        │────────────▶│ 5.0              │
+│ AUTH   │            │ REMOTE     │             │ ELECTION         │
+│        │◀───────────│ POLLING    │◀────────────│ LIFECYCLE        │
+└───┬────┘  challenge │ WORKFLOW   │  lifecycle  └────────┬─────────┘
+    │                 └─────┬──────┘                      │
+    │ token                 │ request / assignment        │ status
+    ▼                       ▼                             ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     D1  ADMINISTRATION STORE                  │
+│   Officer · Voter · Constituency · PollingCentre · Election   │
+│   Candidate · RemotePollingRequest · RemotePollingAssignment  │
+│   OtpChallenge · Session · AuditRecord                        │
+└──────────────────────────────────────────────────────────────┘
+    ▲                       ▲                             ▲
+    │ profile, ballot       │ candidate choice            │ counts
+    │                       │                             │
+┌───┴──────┐          ┌─────┴──────┐              ┌───────┴──────┐
+│ 2.0      │          │ 3.0        │              │ 6.0          │
+│ VOTER    │─────────▶│ BALLOT     │              │ SIMULATOR    │
+│ SERVICE  │          │ SUBMISSION │              │ reconcile /  │
+│          │◀─────────│            │              │ results      │
+└───┬──────┘ receipt  └──┬──────┬──┘              └───────┬──────┘
+    │                    │      │                        │
+    │ eligibility        │      │ sealed choice          │ decrypt
+    ▼                    ▼      ▼                        ▼
+┌──────────────┐   ┌──────────────┐            ┌───────────────────┐
+│ D2 IDENTITY  │   │ D3 CHOICE    │            │ 7.0 AUDIT         │
+│    SIDE      │   │    SIDE      │            │ every transition  │
+│VoterElection │   │SubmittedBallot│           └─────────┬─────────┘
+│Status{voterId│   │{ballotRef,   │                      │
+│  ,electionId}│   │ nonce,ct,tag}│                      ▼
+└──────────────┘   └──────────────┘            ┌───────────────────┐
+                                                   D4 AUDIT TRAIL
+      ══════ no arrow exists between D2 and D3 ══════
+    </figure>
+    <p class="figure-caption">Figure 4.3: Level 1 data flow diagram</p>
+    <p><b>Processes.</b> <b>1.0 Authentication</b> issues and verifies credentials, and issues sessions. <b>2.0 Voter Service</b> answers profile and eligibility questions from the session identity. <b>3.0 Ballot Submission</b> generates a ballot from the registered constituency, seals a choice and writes both sides of the boundary in one transaction. <b>4.0 Remote Polling Workflow</b> is the state machine. <b>5.0 Election Lifecycle</b> moves an election between states and expires open requests on closure. <b>6.0 Simulator</b> reconciles and counts, after closure only. <b>7.0 Audit</b> receives a record from each of the others.</p>
+    <p><b>Why the boundary is drawn as an absence.</b> In a conventional data flow diagram, arrows show data moving between stores. Here the important fact is a non-arrow: no data moves between D2 and D3, and no process reads both to produce an identity-and-choice pair. The transaction in process 3.0 writes to both stores, which is why they are drawn near each other, but it writes different facts to each: to D2 that this voter has voted, to D3 that some choice was made, without any value that would let a later query join them.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.3.3 Level 2 Data Flow Diagram &mdash; Remote Polling Workflow</h3>
+    <p>Process 4.0 is expanded into its six sub-processes, each corresponding to a route in the <code>remote-polling</code> module. The figure also shows the assignment store, which process 4.3 writes and process 4.4 reads.</p>
+    <!--FIG:4.4:Level 2 data flow diagram - remote polling workflow-->
+    <figure class="figure-box">
+                       VOTER                              VERIFICATION OFFICER
+                         │                                          │
+    electionId, centre,  │                                          │ approve / reject
+    reason               ▼                                          ▼
+              ┌────────────────────┐                        ┌────────────────────┐
+              │ 4.1 SUBMIT         │                        │ 4.3 DECIDE         │
+              │ check election is  │                        │ approve → create   │
+              │   CONFIGURED       │                        │   assignment (txn) │
+              │ check centre is    │                        │ reject  → require  │
+              │   NOT own const.   │                        │   non-empty reason │
+              │ check no active    │                        └─────────┬──────────┘
+              │   request (index)  │                                  │
+              └─────────┬──────────┘                                  │
+                        │ PENDING                                     │ APPROVED
+                        ▼                                             ▼
+              ┌──────────────────────────────────────────────────────────────┐
+              │              D5  RemotePollingRequest                         │
+              │  PENDING → UNDER_REVIEW → APPROVED → USED                     │
+              │         ↘ WITHDRAWN      ↘ REJECTED   ↘ EXPIRED               │
+              └───────┬──────────────────────────────────┬───────────────────┘
+                      │                                  │
+        ┌─────────────┼──────────────┐                   │
+        ▼             ▼              ▼                   ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐
+│ 4.2 CLAIM /  │ │ 4.4 WITHDRAW │ │ 4.5 EXPIRE   │ │ 4.6 VERIFY AT CENTRE │
+│   RELEASE    │ │ voter only,  │ │ on election  │ │ voter number →       │
+│ officer only │ │ own request  │ │ closure,     │ │  record + request +  │
+│              │ │              │ │ SYSTEM actor │ │  assignment + voted? │
+└──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────────┬───────────┘
+       │                │                │                    │
+       └────────────────┴────────────────┴────────────────────┘
+                                     │
+                                     ▼
+                        ┌─────────────────────────┐
+                        │  D6 RemotePolling       │
+                        │     Assignment          │
+                        │ { requestId, voterId,   │
+                        │   electionId,           │
+                        │   pollingCentreId }     │
+                        │   ← no constituency →   │
+                        └─────────────────────────┘
+                                     │ read by
+                                     ▼
+                        ┌─────────────────────────┐
+                        │  D3 CHOICE SIDE         │
+                        │  ballot carries the     │
+                        │  REGISTERED constituency│
+                        └─────────────────────────┘
+    </figure>
+    <p class="figure-caption">Figure 4.4: Level 2 data flow diagram &mdash; remote polling workflow</p>
+    <p><b>Sub-processes.</b> <b>4.1 Submit</b> applies three refusals before creating anything: the election must be CONFIGURED, the centre must lie outside the voter&rsquo;s registered constituency, and no active request may exist. The third is enforced by the database rather than by the read that precedes it, so the diagram annotates it as an index. <b>4.2 Claim and release</b> are the two moves that let an officer take and surrender ownership of a review without deciding. <b>4.3 Decide</b> is the only sub-process that creates an assignment, and it does so inside a transaction. <b>4.4 Withdraw</b> lets a voter cancel before a decision. <b>4.5 Expire</b> is a system transition triggered by election closure. <b>4.6 Verify</b> is the pre-vote check at a centre.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:4.4 Use Case Diagram-->
+    <h2>4.4 Use Case Diagram</h2>
+    <p>The use case model has five actors. Their relationships to the use cases are shown twice: once for the whole system, and once in detail for the voter, because the voter journey is the one an examiner is most likely to ask about.</p>
+
+    <h3>4.4.1 Overall Use Case Diagram</h3>
+    <!--FIG:4.5:Overall use case diagram-->
+    <figure class="figure-box">
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                          VOTE ANYWHERE SYSTEM                                 │
+│                                                                              │
+│  ┌───────────────────────────┐   ┌───────────────────────────┐               │
+│  │ Authenticate with OTP     │   │ Authenticate with password│               │
+│  └─────────────┬─────────────┘   └─────────────┬─────────────┘               │
+│                │                                │                            │
+│  ┌─────────────┴─────────────┐   ┌─────────────┴─────────────┐               │
+│  │ View own profile          │   │ View role dashboard       │               │
+│  └─────────────┬─────────────┘   └─────────────┬─────────────┘               │
+│                │                                │                            │
+│  ┌─────────────┴─────────────┐   ┌─────────────┴─────────────┐               │
+│  │ Check eligibility         │   │ Review request queue      │               │
+│  └─────────────┬─────────────┘   └─────────────┬─────────────┘               │
+│                │                                │                            │
+│  ┌─────────────┴─────────────┐   ┌─────────────┴─────────────┐               │
+│  │ Submit remote request     │   │ Claim / release request   │               │
+│  └─────────────┬─────────────┘   └─────────────┬─────────────┘               │
+│                │                                │                            │
+│  ┌─────────────┴─────────────┐   ┌─────────────┴─────────────┐               │
+│  │ Withdraw own request      │   │ Approve request           │               │
+│  └─────────────┬─────────────┘   └─────────────┬─────────────┘               │
+│                │                                │                            │
+│  ┌─────────────┴─────────────┐   ┌─────────────┴─────────────┐               │
+│  │ View request status       │   │ Reject with reason        │               │
+│  └─────────────┬─────────────┘   └─────────────┬─────────────┘               │
+│                │                                │                            │
+│  ┌─────────────┴─────────────┐   ┌─────────────┴─────────────┐               │
+│  │ Verify voter at centre    │   │ Activate election         │               │
+│  └─────────────┬─────────────┘   └─────────────┬─────────────┘               │
+│                │                                │                            │
+│  ┌─────────────┴─────────────┐   ┌─────────────┴─────────────┐               │
+│  │ View controlled ballot    │   │ Close election            │               │
+│  └─────────────┬─────────────┘   └─────────────┬─────────────┘               │
+│                │                                │                            │
+│  ┌─────────────┴─────────────┐   ┌─────────────┴─────────────┐               │
+│  │ Submit ballot             │   │ Read reconciliation       │               │
+│  └─────────────┬─────────────┘   └─────────────┬─────────────┘               │
+│                │                                │                            │
+│  ┌─────────────┴─────────────┐   ┌─────────────┴─────────────┐               │
+│  │ Read aggregate results    │   │ Read audit trail          │               │
+│  └───────────────────────────┘   └───────────────────────────┘               │
+└──────────────────────────────────────────────────────────────────────────────┘
+        ▲                    ▲                    ▲                 ▲
+        │                    │                    │                 │
+   ┌────┴────┐        ┌──────┴──────┐      ┌──────┴─────┐    ┌──────┴─────┐
+   │  VOTER  │        │VERIFICATION │      │  POLLING   │    │  ELECTION  │
+   │         │        │  OFFICER    │      │  CENTRE    │    │ADMINISTRATOR│
+   └─────────┘        └─────────────┘      │  OFFICER   │    └──────┬─────┘
+                                           └────────────┘           │
+                                                                     │
+                                                     ┌───────────────┴──┐
+                                                     │  SYSTEM AUDITOR  │
+                                                     └──────────────────┘
+    </figure>
+    <p class="figure-caption">Figure 4.5: Overall use case diagram</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.4.2 Voter Use Case Detail</h3>
+    <p>The voter journey is shown separately because it contains the only sequence in which a single actor must complete four dependent steps in order. The dependency is not enforced by the system for its own sake &mdash; an eligible voter could, in principle, reach a ballot without a remote request &mdash; but the request mechanism is what makes the remote act legitimate.</p>
+    <!--FIG:4.6:Voter use case diagram-->
+    <figure class="figure-box">
+                    ┌─────────────────────────────────────────────┐
+                    │              VOTER USE CASES                 │
+                    └─────────────────────────────────────────────┘
+                                        │
+     ┌──────────────────────────────────┼──────────────────────────────┐
+     │                                  │                              │
+     ▼                                  ▼                              ▼
+┌─────────────┐                  ┌─────────────┐                ┌─────────────┐
+│ Enter voter │                  │ Verify      │                │ End session │
+│ number      │─────────────────▶│ 6-digit OTP │───────────────▶│             │
+└─────────────┘   «include»      └─────────────┘   «include»    └─────────────┘
+                                        │
+                                        ▼
+                              ┌───────────────────┐
+                              │ View dashboard    │
+                              │ profile, election,│
+                              │ request, hasVoted │
+                              └────────┬──────────┘
+                                       │
+              ┌────────────────────────┼────────────────────────┐
+              ▼                        ▼                        ▼
+    ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
+    │ Check            │    │ Submit remote    │    │ View request     │
+    │ eligibility      │    │ polling request  │    │ status           │
+    │ 4 checks         │    └────────┬─────────┘    └──────────────────┘
+    └──────────────────┘             │                        ▲
+                                     │ «extend»               │
+                                     ▼                        │
+                            ┌──────────────────┐              │
+                            │ Withdraw request │──────────────┘
+                            └──────────────────┘
+                                     │
+                                     │ (after approval)
+                                     ▼
+                            ┌──────────────────┐
+                            │ View controlled  │
+                            │ ballot — the     │
+                            │ REGISTERED       │
+                            │ constituency     │
+                            └────────┬─────────┘
+                                     │
+                                     ▼
+                            ┌──────────────────┐
+                            │ Submit one       │
+                            │ candidate choice │
+                            └────────┬─────────┘
+                                     │
+                                     ▼
+                            ┌──────────────────┐
+                            │ Receive opaque   │
+                            │ ballot reference │
+                            │ (no choice is    │
+                            │  returned)       │
+                            └──────────────────┘
+    </figure>
+    <p class="figure-caption">Figure 4.6: Voter use case diagram</p>
+    <p>Three features of this diagram are deliberate. The OTP verification is an <i>include</i> of authentication rather than a separate use case, because a voter cannot reach anything else without it. Withdrawal is an <i>extend</i>, because it is available only while the request is in an active state. And the final use case produces a reference rather than a confirmation of what was chosen &mdash; the system cannot tell the voter how they voted, because it does not keep that information in a form it could read back without the key and the closure of the election.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.4.3 Use Case Realisation Matrix</h3>
+    <p>Each use case is realised by a route, a service method and, where relevant, a repository method. The matrix exists so that a reader can move from the diagram to the code.</p>
+    <!--TAB:4.4:Use case realisation matrix-->
+    <table class="tiny">
+        <tr><th style="width:27%;">Use case</th><th style="width:22%;">Actor</th><th style="width:26%;">Route</th><th>Service method</th></tr>
+        <tr><td>Authenticate with OTP</td><td>Voter</td><td><code>POST /auth/voter/otp</code><br><code>POST /auth/voter/otp/verify</code></td><td><code>requestOtp</code><br><code>verifyOtp</code></td></tr>
+        <tr><td>Authenticate with password</td><td>All officers</td><td><code>POST /auth/officer/login</code></td><td><code>officerLogin</code></td></tr>
+        <tr><td>Read own session</td><td>All</td><td><code>GET /auth/session</code></td><td><code>readSession</code></td></tr>
+        <tr><td>Revoke own session</td><td>Voter</td><td><code>DELETE /auth/session</code></td><td><code>revokeSession</code></td></tr>
+        <tr><td>Revoke any session</td><td>Administrator</td><td><code>DELETE /auth/sessions/:id</code></td><td><code>revokeSession</code></td></tr>
+        <tr><td>Change password</td><td>All officers</td><td><code>POST /auth/password</code></td><td><code>changePassword</code></td></tr>
+        <tr><td>View own profile</td><td>Voter</td><td><code>GET /voters/me</code></td><td><code>getProfile</code></td></tr>
+        <tr><td>Check eligibility</td><td>Voter</td><td><code>POST /voters/eligibility</code></td><td><code>checkEligibility</code></td></tr>
+        <tr><td>View dashboard</td><td>Voter</td><td><code>GET /remote-polling/dashboard</code></td><td><code>dashboard</code></td></tr>
+        <tr><td>List centres</td><td>All</td><td><code>GET /remote-polling/centres</code></td><td><code>listCentres</code></td></tr>
+        <tr><td>Submit request</td><td>Voter</td><td><code>POST /remote-polling/requests</code></td><td><code>submitRequest</code></td></tr>
+        <tr><td>Read own request</td><td>Voter</td><td><code>GET /remote-polling/requests/mine</code></td><td><code>getMyRequest</code></td></tr>
+        <tr><td>Withdraw request</td><td>Voter</td><td><code>POST /remote-polling/requests/mine/withdraw</code></td><td><code>withdrawMyRequest</code></td></tr>
+        <tr><td>Read own assignment</td><td>Voter</td><td><code>GET /remote-polling/assignments/mine</code></td><td><code>getMyAssignment</code></td></tr>
+        <tr><td>Review queue</td><td>VO, PCO</td><td><code>GET /remote-polling/requests</code></td><td><code>listQueue</code></td></tr>
+        <tr><td>Claim request</td><td>VO</td><td><code>POST /remote-polling/requests/:id/claim</code></td><td><code>claim</code></td></tr>
+        <tr><td>Release request</td><td>VO</td><td><code>POST /remote-polling/requests/:id/release</code></td><td><code>release</code></td></tr>
+        <tr><td>Approve request</td><td>VO</td><td><code>POST /remote-polling/requests/:id/approve</code></td><td><code>approve</code></td></tr>
+        <tr><td>Reject request</td><td>VO</td><td><code>POST /remote-polling/requests/:id/reject</code></td><td><code>reject</code></td></tr>
+        <tr><td>View controlled ballot</td><td>Voter</td><td><code>GET /simulator/controlled-ballot</code></td><td><code>generateBallot</code></td></tr>
+        <tr><td>Submit ballot</td><td>Voter</td><td><code>POST /simulator/controlled-ballot/submit</code></td><td><code>submitBallot</code></td></tr>
+        <tr><td>Read reconciliation</td><td>Admin, Auditor</td><td><code>GET /simulator/elections/:id/reconciliation</code></td><td><code>reconcile</code></td></tr>
+        <tr><td>Read results</td><td>All</td><td><code>GET /simulator/elections/:id/results</code></td><td><code>results</code></td></tr>
+        <tr><td>Verify voter at centre</td><td>VO, PCO</td><td><code>GET /officer/verification</code></td><td><code>verifyVoter</code></td></tr>
+        <tr><td>Role dashboard</td><td>VO, PCO, Auditor</td><td><code>GET /officer/dashboard</code></td><td><code>dashboard</code></td></tr>
+        <tr><td>Activate election</td><td>Administrator</td><td><code>POST /admin/elections/:id/activate</code></td><td><code>activate</code></td></tr>
+        <tr><td>Close election</td><td>Administrator</td><td><code>POST /admin/elections/:id/close</code></td><td><code>close</code></td></tr>
+        <tr><td>Read audit trail</td><td>Auditor</td><td><code>GET /audit/records</code></td><td><code>listAuditRecords</code></td></tr>
+    </table>
+    <p class="table-caption">Table 4.4: Use case realisation matrix</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:4.5 Class Diagram-->
+    <h2>4.5 Class Diagram</h2>
+    <p>The class diagram shows the domain types, their attributes and their associations. It is drawn from the Prisma models, because in this application the persistence model and the domain model coincide: Prisma generates a TypeScript type for every model, and the services consume those types directly rather than translating to a second representation. Introducing a parallel set of domain classes would have added a mapping layer with no behaviour to justify it.</p>
+
+    <h3>4.5.1 Domain Classes and Associations</h3>
+    <!--FIG:4.7:Class diagram - domain models-->
+    <figure class="figure-box">
+┌────────────────────┐         ┌────────────────────┐        ┌──────────────────┐
+│     Officer        │         │       Voter        │        │   Constituency   │
+├────────────────────┤         ├────────────────────┤        ├──────────────────┤
+│ - id: string       │         │ - id: string       │        │ - id: string     │
+│ - username: string │         │ - voterNumber: str │        │ - code: string   │
+│ - passwordHash     │         │ - fullName: string │        │ - name: string   │
+│ - role: OfficerRole│         │ - registeredConst… │        └────────┬─────────┘
+│ - displayName      │         │ - homePollingC…    │                 │ 1
+│ - createdAt        │         │ - createdAt        │                 │
+└─────────┬──────────┘         └─────────┬──────────┘                 │ n
+          │ 1                            │ 1             ┌────────────▼─────────┐
+          │                              │               │    PollingCentre     │
+          │ n                            │ n             ├──────────────────────┤
+┌─────────▼──────────┐         ┌─────────▼──────────┐    │ - id: string         │
+│      Session       │         │    OtpChallenge    │    │ - code: string       │
+├────────────────────┤         ├────────────────────┤    │ - name: string       │
+│ - id (jti)         │         │ - id               │    │ - constituencyId     │
+│ - actorType        │         │ - challengeId      │    └────────┬─────────────┘
+│ - officerId?       │         │ - voterId          │             │ 1
+│ - voterId?         │         │ - otpHash          │             │
+│ - role: string     │         │ - expiresAt        │             │ n
+│ - issuedAt         │         │ - attemptCount     │  ┌──────────▼───────────┐
+│ - expiresAt        │         │ - consumedAt?      │  │ RemotePollingRequest │
+│ - revokedAt?       │         └────────────────────┘  ├──────────────────────┤
+└────────────────────┘                                 │ - id                 │
+                                                       │ - voterId            │
+┌────────────────────┐    ┌────────────────────┐       │ - electionId         │
+│      Election      │    │    Candidate       │       │ - pollingCentreId    │
+├────────────────────┤    ├────────────────────┤       │ - reason?            │
+│ - id               │ 1  │ - id               │       │ - reviewNote?        │
+│ - code             │───▶│ - fullName         │       │ - status             │
+│ - name             │  n │ - symbol?          │       │ - reviewedById?      │
+│ - lifecycle        │    │ - electionId       │       │ - reviewedAt?        │
+│ - startsAt         │    │ - constituencyId   │       │ - createdAt          │
+│ - endsAt           │    └────────────────────┘       └──────────┬───────────┘
+│ - createdAt        │                                            │ 1
+└─────────┬──────────┘                                            │ 0..1
+          │ 1                                          ┌──────────▼───────────┐
+          │ n                                          │RemotePollingAssignment│
+┌─────────▼──────────────┐    ┌──────────────────┐     ├──────────────────────┤
+│  ElectionConstituency  │    │ VoterElectionStat│     │ - id                 │
+├────────────────────────┤    ├──────────────────┤     │ - requestId (unique) │
+│ - electionId  (PK)     │    │ - id             │     │ - voterId            │
+│ - constituencyId (PK)  │    │ - voterId        │     │ - electionId         │
+└────────────────────────┘    │ - electionId     │     │ - pollingCentreId    │
+                              │ - hasVoted       │     │ - assignedById       │
+    ┌──────────────────────┐  │ - votedAt?       │     │ - createdAt          │
+    │   SubmittedBallot    │  └──────────────────┘     └──────────────────────┘
+    ├──────────────────────┤           "THAT"                    (no
+    │ - ballotReference PK │                                     constituency
+    │ - electionId         │                                      field)
+    │ - constituencyId     │
+    │ - nonce: bytes       │         "WHAT"
+    │ - ciphertext: bytes  │
+    │ - authTag: bytes     │
+    │ - submittedAt        │
+    └──────────────────────┘
+       ▲
+       │  ══ NO ASSOCIATION EXISTS BETWEEN SubmittedBallot
+       │     AND ANY CLASS ON THE IDENTITY SIDE ══
+       │
+    ┌──┴───────────────────┐
+    │      AuditRecord     │
+    ├──────────────────────┤
+    │ - id                 │
+    │ - actorType          │
+    │ - actorId?           │
+    │ - action             │
+    │ - entityType?        │
+    │ - entityRef?         │
+    │ - createdAt          │
+    └──────────────────────┘
+    </figure>
+    <p class="figure-caption">Figure 4.7: Class diagram &mdash; domain models</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.5.2 Rationale for the Class Structure</h3>
+    <p>Five features of the class structure deserve comment, because each is a decision rather than an accident of modelling.</p>
+    <p><b>No inheritance is used.</b> A conventional object model might introduce a base <code>Actor</code> class with <code>Officer</code> and <code>Voter</code> as subclasses. This design does not, and the reason is concrete: the two actors have entirely different authentication mechanisms, different session semantics and different lifecycles, and the only thing they share is that both produce a session. That shared fact is represented in <code>Session</code>, which carries an <code>actorType</code> discriminator and two optional foreign keys. The result is a shallower hierarchy and a simpler query, at the cost of two nullable columns &mdash; a trade judged worthwhile because the nullability documents precisely which combinations are legal.</p>
+    <p><b><code>ElectionConstituency</code> is an association class with a primary key, not a bare join table.</b> It carries a composite primary key on the pair, which means the pair can be referenced as a whole. That capability is used: <code>Candidate</code> has a composite foreign key to <code>(electionId, constituencyId)</code>, and the effect is that a candidate cannot be created for a constituency that is not part of the election. The constraint is expressed once, in the schema, and holds for every insert regardless of which code path performs it.</p>
+    <p><b>The assignment has no constituency attribute.</b> This is the single most important absence in the diagram. An approved assignment tells a voter which centre they may attend and which election it concerns. It says nothing about which ballot they will receive, because that is determined by the voter record alone. A modeller who added <code>constituencyId</code> here for convenience would make the Core Rule a runtime check rather than a structural fact.</p>
+    <p><b><code>SubmittedBallot</code> has no voter attribute.</b> It has a ballot reference, an election, a constituency and three cryptographic fields. There is no voter identifier and no relation by which one could be reached. The diagram shows the class floating free of the identity side, which is the visual statement of the secrecy boundary.</p>
+    <p><b><code>AuditRecord</code> references entities by string, not by foreign key.</b> This is intentional. A foreign key would create a referential constraint that would prevent the audit trail from outliving the record it describes, and it would also invite joins that reconstruct the very relationships the audit design avoids. The <code>entityRef</code> is an opaque string: a voter identifier for a voter action, a request identifier with its transition for a state change, a ballot reference with a system actor for a submission. The audit trail therefore records facts about operations without becoming a graph of the system.</p>
+
+    <h3>4.5.3 Service Classes and Their Collaborations</h3>
+    <p>The services are not domain entities but collaborators, and their dependencies form a directed graph with no cycles. The following table records each service, the collaborators it may use and the invariant it owns.</p>
+    <!--TAB:4.5:Service collaborations-->
+    <table class="compact">
+        <tr><th style="width:20%;">Service</th><th style="width:38%;">Collaborators</th><th>Invariant owned</th></tr>
+        <tr><td><code>authService</code></td><td><code>authRepository</code>, <code>auditService</code>, bcrypt, jsonwebtoken</td><td>Uniform failure; single-use challenge; revocation</td></tr>
+        <tr><td><code>voterService</code></td><td><code>voterRepository</code>, <code>electionRepository</code></td><td>Eligibility is computed from the registered constituency</td></tr>
+        <tr><td><code>remotePollingService</code></td><td><code>remotePollingRepository</code>, <code>voterRepository</code>, <code>electionRepository</code>, <code>auditService</code></td><td>The transition table</td></tr>
+        <tr><td><code>ballotService</code></td><td><code>ballotRepository</code>, <code>electionRepository</code>, <code>remotePollingRepository</code>, <code>auditService</code>, <code>sealChoice</code></td><td>The Core Rule; one ballot per voter per election</td></tr>
+        <tr><td><code>simulatorService</code></td><td><code>ballotRepository</code>, <code>electionRepository</code>, <code>openBallotForCounting</code></td><td>Results only after closure; aggregates only</td></tr>
+        <tr><td><code>officerService</code></td><td><code>officerRepository</code>, <code>voterRepository</code>, <code>remotePollingRepository</code>, <code>electionRepository</code></td><td>A dashboard shows only what the role may see</td></tr>
+        <tr><td><code>electionService</code></td><td><code>electionRepository</code>, <code>remotePollingSystem</code>, <code>auditService</code></td><td>Monotonic lifecycle; expiry on closure</td></tr>
+        <tr><td><code>auditService</code></td><td><code>auditRepository</code>, logger</td><td>Never throws into the calling operation</td></tr>
+    </table>
+    <p class="table-caption">Table 4.5: Service collaborations</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:4.6 Entity Relationship Diagram-->
+    <h2>4.6 Entity Relationship Diagram</h2>
+    <p>The entity-relationship diagram presents the same fourteen entities in the notation of relational design: entities as rectangles, attributes listed inside, and relationships as named lines with cardinality. It is included in addition to the class diagram because the two answer different questions. The class diagram answers &ldquo;what objects does the application manipulate&rdquo;; the ER diagram answers &ldquo;what tables exist and how are they related&rdquo;, which is the question a database examiner will ask.</p>
+
+    <h3>4.6.1 Entities, Attributes and Relationships</h3>
+    <!--FIG:4.8:Entity relationship diagram-->
+    <figure class="figure-box">
+ ┌──────────────────┐           ┌──────────────────┐          ┌──────────────────┐
+ │ CONSTITUENCY     │           │   ELECTION       │          │   OFFICER        │
+ ├──────────────────┤           ├──────────────────┤          ├──────────────────┤
+ │ PK id            │           │ PK id            │          │ PK id            │
+ │ UQ code          │           │ UQ code          │          │ UQ username      │
+ │    name          │           │    name          │          │    passwordHash  │
+ └───┬──────┬───────┘           │    lifecycle     │          │    role          │
+     │1     │1                  │    startsAt      │          │    displayName   │
+     │      │                   │    endsAt        │          │    createdAt     │
+     │n     │n                  │    createdAt     │          └────┬────────┬────┘
+     ▼      ▼                   └───┬──────────┬───┘               │1       │1
+┌─────────┐ ┌──────────────┐        │1         │1                  │n       │n
+│POLLING  │ │ VOTER        │        │          │             ┌─────▼────┐ ┌─▼──────────┐
+│CENTRE   │ ├──────────────┤        │n         │n            │ REVIEWS  │ │ ASSIGNS    │
+├─────────┤ │ PK id        │        ▼          ▼             │ (request)│ │(assignment)│
+│ PK id   │ │ UQ voterNo   │  ┌───────────┐ ┌────────────┐    └──────────┘ └────────────┘
+│ UQ code │ │    fullName  │  │ELECTION   │ │ CANDIDATE  │
+│    name │ │ FK regConst  │  │CONSTITU-  │ ├────────────┤
+│ FK const│ │ FK homeCentre│  │ENCY       │ │ PK id      │
+└────┬────┘ │    createdAt │  ├───────────┤ │    fullName│
+     │1     └──┬────┬──────┘  │ PK,FK elec│ │    symbol  │
+     │         │1   │1        │ PK,FK cons│ │ FK election│
+     │n        │    │         └───────────┘ │ FK const   │
+     ▼         │    │                       │ FK (elec,  │
+┌────────────┐ │    │                       │    cons)   │
+│ HOME       │ │    │                       │ UQ (elec,  │
+│ (voters)   │ │    │                       │  cons,name)│
+└────────────┘ │    │                       └────────────┘
+               │    │
+    ┌──────────┘    └────────────┬───────────────┬─────────────────┐
+    │1                           │1              │1                │1
+    │n                           │n              │n                │n
+┌───▼──────────────┐ ┌───────────▼─────────┐ ┌───▼──────────┐ ┌────▼──────────┐
+│ VOTER_ELECTION_  │ │ REMOTE_POLLING_     │ │ OTP_CHALLENGE│ │ SESSION       │
+│ STATUS           │ │ REQUEST             │ ├──────────────┤ ├───────────────┤
+├──────────────────┤ ├─────────────────────┤ │ PK id        │ │ PK id (= jti) │
+│ PK id            │ │ PK id               │ │ UQ challenge │ │    actorType  │
+│ FK voter         │ │ FK voter            │ │ FK voter     │ │ FK officer?   │
+│ FK election      │ │ FK election         │ │    otpHash   │ │ FK voter?     │
+│    hasVoted      │ │ FK pollingCentre    │ │    expiresAt │ │    role       │
+│    votedAt       │ │    reason           │ │    attempts  │ │    issuedAt   │
+│ UQ (voter,elec)  │ │    reviewNote       │ │    consumedAt│ │    expiresAt  │
+└──────────────────┘ │    status           │ │    createdAt │ │    revokedAt  │
+        "THAT"       │ FK reviewedBy       │ └──────────────┘ └───────────────┘
+                     │    reviewedAt       │
+                     │    createdAt        │      ┌───────────────────┐
+                     │ UQ partial (voter,  │      │   AUDIT_RECORD    │
+                     │   election) WHERE   │      ├───────────────────┤
+                     │   status ACTIVE     │      │ PK id             │
+                     └──────────┬──────────┘      │    actorType      │
+                                │1                │    actorId?       │
+                     ┌──────────▼──────────┐      │    action         │
+                     │ REMOTE_POLLING_     │      │    entityType?    │
+                     │ ASSIGNMENT          │      │    entityRef?     │
+                     ├─────────────────────┤      │    createdAt      │
+                     │ PK id               │      └───────────────────┘
+                     │ UQ request          │        (no foreign keys —
+                     │ UQ (voter,election) │         string references)
+                     │ FK voter            │
+                     │ FK election         │      ┌───────────────────┐
+                     │ FK pollingCentre    │      │ SUBMITTED_BALLOT  │
+                     │ FK assignedBy       │      ├───────────────────┤
+                     │    createdAt        │      │ PK ballotReference│
+                     └─────────────────────┘      │ FK election       │
+                        ← no constituency →       │ FK constituency   │
+                                                  │    nonce          │
+                                                  │    ciphertext     │
+                                                  │    authTag        │
+                                                  │    submittedAt    │
+                                                  └───────────────────┘
+                                                        "WHAT"
+                    ══════ NO RELATIONSHIP LINE ══════
+                    between VOTER_ELECTION_STATUS and
+                    SUBMITTED_BALLOT, and none between
+                    VOTER and SUBMITTED_BALLOT
+    </figure>
+    <p class="figure-caption">Figure 4.8: Entity relationship diagram</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.6.2 Relationship Cardinalities</h3>
+    <!--TAB:4.6:Relationships and cardinalities-->
+    <table class="compact">
+        <tr><th style="width:34%;">Relationship</th><th style="width:12%;">Cardinality</th><th>Rule enforced</th></tr>
+        <tr><td>Constituency &ndash; PollingCentre</td><td>1 : N</td><td>A centre belongs to exactly one constituency</td></tr>
+        <tr><td>Constituency &ndash; Voter (registered)</td><td>1 : N</td><td>A voter is enrolled in exactly one constituency, and the foreign key is non-nullable</td></tr>
+        <tr><td>PollingCentre &ndash; Voter (home)</td><td>1 : N, optional</td><td>A voter may have a home centre, which must lie in their registered constituency by application convention</td></tr>
+        <tr><td>Election &ndash; Constituency</td><td>M : N</td><td>Through <code>ElectionConstituency</code>, with a composite primary key</td></tr>
+        <tr><td>ElectionConstituency &ndash; Candidate</td><td>1 : N</td><td>Composite foreign key guarantees the constituency is part of the election</td></tr>
+        <tr><td>Voter &ndash; VoterElectionStatus</td><td>1 : N</td><td>Unique on (voter, election): at most one row per pair</td></tr>
+        <tr><td>Voter &ndash; RemotePollingRequest</td><td>1 : N</td><td>Many over time; at most one active, enforced by a partial index</td></tr>
+        <tr><td>RemotePollingRequest &ndash; Assignment</td><td>1 : 0..1</td><td>Unique request identifier; exactly one after approval, none otherwise</td></tr>
+        <tr><td>Voter &ndash; Assignment</td><td>1 : 0..1 per election</td><td>Unique on (voter, election)</td></tr>
+        <tr><td>Officer &ndash; RemotePollingRequest (reviewer)</td><td>1 : N</td><td>Nullable; set on claim, cleared on release</td></tr>
+        <tr><td>Officer &ndash; Assignment (assigner)</td><td>1 : N</td><td>Non-nullable; records who approved</td></tr>
+        <tr><td>Voter &ndash; OtpChallenge</td><td>1 : N</td><td>Challenges accumulate; each is single-use and expires</td></tr>
+        <tr><td>Officer/Voter &ndash; Session</td><td>1 : N</td><td>A session belongs to exactly one actor of one type</td></tr>
+        <tr><td>Election &ndash; SubmittedBallot</td><td>1 : N</td><td>Ballots are attributed to an election and a constituency</td></tr>
+        <tr><td>SubmittedBallot &ndash; any identity entity</td><td><b>none</b></td><td><b>No relationship exists, by design</b></td></tr>
+    </table>
+    <p class="table-caption">Table 4.6: Relationships and cardinalities</p>
+
+    <h3>4.6.3 The Core Rule in the Schema</h3>
+    <p>The Core Rule states that a remote polling centre changes where a voter votes and never changes the registered constituency or the ballot received. Three schema facts enforce it, and none of them is a comment.</p>
+    <p><b>Fact one.</b> <code>Voter.registeredConstituencyId</code> is a non-nullable foreign key, and it is the only place the association between a voter and a constituency is stored as an enrolment. No other table records an alternative.</p>
+    <p><b>Fact two.</b> <code>RemotePollingAssignment</code> contains <code>pollingCentreId</code> and contains no constituency column. To discover the ballot for an assigned voter, a query must go through <code>Voter.registeredConstituencyId</code>, because that is the only path the schema offers.</p>
+    <p><b>Fact three.</b> <code>SubmittedBallot.constituencyId</code> is written from <code>voter.registeredConstituencyId</code> at submission time, and the service that writes it never receives a constituency as input. Reconciliation then compares counts grouped by the same value, so a ballot cast at a remote centre is counted towards the voter&rsquo;s own constituency rather than the centre&rsquo;s.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.6.4 Worked Example of the Core Rule</h3>
+    <p>An example makes the rule concrete. The seed data contains a voter registered in Chennai South who is approved to appear at a polling centre in Madurai Central. The table below shows what each record holds at the end of the workflow.</p>
+    <!--TAB:4.7:The Core Rule worked example-->
+    <table class="compact">
+        <tr><th style="width:26%;">Record</th><th style="width:36%;">Value</th><th>Note</th></tr>
+        <tr><td><code>Voter.voterNumber</code></td><td>VA-0001</td><td>Fictional voter roll identifier</td></tr>
+        <tr><td><code>Voter.registeredConstituencyId</code></td><td>CHN-S &mdash; Chennai South</td><td>The only source of the ballot</td></tr>
+        <tr><td><code>Voter.homePollingCentreId</code></td><td>CHN-S-01</td><td>Where the voter would vote by default</td></tr>
+        <tr><td><code>RemotePollingRequest.pollingCentreId</code></td><td>MDU-C-01 &mdash; Madurai Central</td><td>The centre requested; never a constituency</td></tr>
+        <tr><td><code>RemotePollingAssignment.pollingCentreId</code></td><td>MDU-C-01</td><td>Where the voter may appear</td></tr>
+        <tr><td><code>RemotePollingAssignment.constituencyId</code></td><td><b>does not exist</b></td><td>The column is absent from the table</td></tr>
+        <tr><td>Candidates returned by the ballot</td><td>Kavin Raj (Lamp), Divya Nair (Book)</td><td>Both stand in Chennai South</td></tr>
+        <tr><td><code>SubmittedBallot.constituencyId</code></td><td>CHN-S &mdash; Chennai South</td><td>Taken from the voter record at submission</td></tr>
+    </table>
+    <p class="table-caption">Table 4.7: The Core Rule worked example</p>
+    <p>The last two rows are the point. A voter standing in Madurai receives the Chennai South ballot and their ballot is counted in Chennai South. The reconciliation report attributes the ballot to Chennai South because both sides of the comparison are keyed by the registered constituency. Nothing in the journey moved the voter&rsquo;s enrolment.</p>
+    <p>Now consider what a developer would have to do to break the rule. They could add a <code>constituencyId</code> to the assignment model &mdash; a visible schema change requiring a migration. They could change the signature of <code>generateBallot</code> to accept a constituency &mdash; a visible change to a public function, which the regression test in Section 7.4 names explicitly. They could write a query that joins the assignment to the polling centre and takes the centre&rsquo;s constituency &mdash; which would require ignoring the fact that the ballot service never reads the assignment for anything except the centre&rsquo;s display name. None of these is impossible, but each is a deliberate act that a reviewer would notice, which is the most a design can achieve.</p>
+
+    <h3>4.6.5 Cardinality Under the Secrecy Boundary</h3>
+    <p>The secrecy boundary produces an unusual situation in relational terms: two tables that are conceptually related by a single real-world event but have no join path. The relation between them exists only as a fact outside the database &mdash; the same person performed both writes in the same transaction.</p>
+    <p>This is not a normalisation defect. It is the deliberate removal of a functional dependency that the system must not be able to compute. A database theorist would say that the relation &ldquo;which voter cast which ballot&rdquo; is held in the operator&rsquo;s memory and in the wall-clock ordering of transactions, and deliberately not in the schema. Anything that could reconstruct it &mdash; a shared nonce, a timestamp precise enough to correlate, a sequence number &mdash; has been avoided. The ballot reference is random and non-sequential precisely so that it orders nothing.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:4.7 Database Design-->
+    <h2>4.7 Database Design</h2>
+    <p>The physical database is PostgreSQL 16, defined by <code>schema.prisma</code> and created by two versioned migrations. This section presents the tables, the constraints and the state machines. The complete field-by-field reference is Appendix A; what follows is the design rationale.</p>
+
+    <h3>4.7.1 Enumerated Types</h3>
+    <!--TAB:4.8:Enumerated types-->
+    <table class="compact">
+        <tr><th style="width:30%;">Enum</th><th style="width:44%;">Values</th><th>Purpose</th></tr>
+        <tr><td><code>OfficerRole</code></td><td>ELECTION_ADMINISTRATOR, VERIFICATION_OFFICER, POLLING_CENTRE_OFFICER, SYSTEM_AUDITOR</td><td>The four officer roles. Voter is not stored here; it is implied by the session actor type</td></tr>
+        <tr><td><code>ElectionLifecycle</code></td><td>CONFIGURED, ACTIVE, CLOSED</td><td>One lifecycle, three states, forward-only</td></tr>
+        <tr><td><code>RemotePollingRequestStatus</code></td><td>PENDING, UNDER_REVIEW, APPROVED, REJECTED, WITHDRAWN, USED, EXPIRED</td><td>Seven states; two are active, five are terminal or post-approval</td></tr>
+        <tr><td><code>ActorType</code></td><td>OFFICER, VOTER, SYSTEM</td><td>Who performed an action, in sessions and audit records</td></tr>
+    </table>
+    <p class="table-caption">Table 4.8: Enumerated types</p>
+    <p>Using database enums rather than free-text status columns is a design decision with two consequences. First, an invalid status cannot be written: the database refuses the insert, so a typo in application code becomes a failed transaction rather than a row that no query matches. Second, adding a value requires a migration, which is exactly the review point that a lifecycle change deserves. The second migration in this project exists for precisely that reason: it adds <code>USED</code> and <code>EXPIRED</code> to the request status enum and a <code>reviewNote</code> column, as a separate, dated, reviewable change.</p>
+
+    <h3>4.7.2 Table Inventory</h3>
+    <!--TAB:4.9:Table inventory-->
+    <table class="compact">
+        <tr><th style="width:26%;">Table</th><th style="width:9%;">Rows*</th><th style="width:36%;">Purpose</th><th>Key constraints</th></tr>
+        <tr><td><code>Officer</code></td><td>4</td><td>Officer accounts, one per role in the seed</td><td>PK id, UQ username</td></tr>
+        <tr><td><code>Voter</code></td><td>2</td><td>Fictional voter roll</td><td>PK id, UQ voterNumber, FK registeredConstituency NOT NULL</td></tr>
+        <tr><td><code>Constituency</code></td><td>2</td><td>Geographic constituencies</td><td>PK id, UQ code</td></tr>
+        <tr><td><code>PollingCentre</code></td><td>2</td><td>Physical voting locations</td><td>PK id, UQ code, FK constituency NOT NULL</td></tr>
+        <tr><td><code>Election</code></td><td>1</td><td>Contests with a lifecycle</td><td>PK id, UQ code</td></tr>
+        <tr><td><code>ElectionConstituency</code></td><td>2</td><td>Which constituencies an election covers</td><td>PK (electionId, constituencyId)</td></tr>
+        <tr><td><code>Candidate</code></td><td>4</td><td>Fictional contestants</td><td>PK id, composite FK to ElectionConstituency, UQ (election, constituency, name)</td></tr>
+        <tr><td><code>VoterElectionStatus</code></td><td>0</td><td>Identity side: that a voter voted</td><td>PK id, <b>UQ (voterId, electionId)</b></td></tr>
+        <tr><td><code>SubmittedBallot</code></td><td>0</td><td>Choice side: what was chosen, sealed</td><td>PK ballotReference; <b>no voter column</b></td></tr>
+        <tr><td><code>RemotePollingRequest</code></td><td>1</td><td>Applications and their lifecycle</td><td>PK id, <b>partial UQ (voterId, electionId) WHERE active</b></td></tr>
+        <tr><td><code>RemotePollingAssignment</code></td><td>0</td><td>Approved permissions</td><td>PK id, UQ requestId, UQ (voterId, electionId)</td></tr>
+        <tr><td><code>OtpChallenge</code></td><td>0</td><td>Mock one-time code challenges</td><td>PK id, UQ challengeId</td></tr>
+        <tr><td><code>Session</code></td><td>0</td><td>Server-side session records</td><td>PK id (= JWT jti)</td></tr>
+        <tr><td><code>AuditRecord</code></td><td>0</td><td>Append-only operation log</td><td>PK id; no FK by design</td></tr>
+    </table>
+    <p class="table-caption">Table 4.9: Table inventory (*seed rows, not a capacity limit)</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.7.3 Identity-Side Table Structure</h3>
+    <p>The two tables either side of the boundary are presented together, side by side, because the comparison is the design.</p>
+    <!--TAB:4.10:VoterElectionStatus structure-->
+    <table class="compact">
+        <tr><th colspan="3"><code>VoterElectionStatus</code> &mdash; identity side</th></tr>
+        <tr><th style="width:22%;">Field</th><th style="width:20%;">Type</th><th>Notes</th></tr>
+        <tr><td><code>id</code></td><td>uuid PK</td><td>Internal identifier</td></tr>
+        <tr><td><code>voterId</code></td><td>FK &rarr; Voter</td><td>Who voted</td></tr>
+        <tr><td><code>electionId</code></td><td>FK &rarr; Election</td><td>In which election</td></tr>
+        <tr><td><code>hasVoted</code></td><td>boolean</td><td>Default false; set true in the submission transaction</td></tr>
+        <tr><td><code>votedAt</code></td><td>timestamp?</td><td>When the identity was consumed</td></tr>
+        <tr><td colspan="3"><b>Unique (voterId, electionId)</b> &mdash; one ballot per voter per election, enforced by the database</td></tr>
+    </table>
+    <p class="table-caption">Table 4.10: <code>VoterElectionStatus</code> structure</p>
+    <!--TAB:4.11:SubmittedBallot structure-->
+    <table class="compact">
+        <tr><th colspan="3"><code>SubmittedBallot</code> &mdash; choice side</th></tr>
+        <tr><th style="width:22%;">Field</th><th style="width:20%;">Type</th><th>Notes</th></tr>
+        <tr><td><code>ballotReference</code></td><td>string PK</td><td>Random 32-hex-digit identifier; carries no voter information</td></tr>
+        <tr><td><code>electionId</code></td><td>FK &rarr; Election</td><td>Which election the choice belongs to</td></tr>
+        <tr><td><code>constituencyId</code></td><td>FK &rarr; Constituency</td><td>The voter&rsquo;s <b>registered</b> constituency</td></tr>
+        <tr><td><code>nonce</code></td><td>bytes</td><td>12 random bytes, fresh per seal, stored in the clear</td></tr>
+        <tr><td><code>ciphertext</code></td><td>bytes</td><td>The sealed candidate choice</td></tr>
+        <tr><td><code>authTag</code></td><td>bytes</td><td>GCM authentication tag over ciphertext and associated data</td></tr>
+        <tr><td><code>submittedAt</code></td><td>timestamp</td><td>Server time</td></tr>
+        <tr><td colspan="3"><b>No voter field exists, and no relation connects this table to any identity model</b></td></tr>
+    </table>
+    <p class="table-caption">Table 4.11: <code>SubmittedBallot</code> structure</p>
+    <p>Comparing the two tables makes the design visible in one glance. The identity side has a voter and no choice. The choice side has a choice and no voter. The only column either could use to reach the other is the election, which is shared by every voter and therefore identifies nobody. A reviewer who asks &ldquo;show me how you cannot link a vote to a voter&rdquo; can be answered by opening these two tables.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.7.4 Request State Machine</h3>
+    <p>The remote polling request has seven states. The diagram shows every legal transition, the actor who may cause it, and the side effect it requires.</p>
+    <!--FIG:4.9:Remote polling request state machine-->
+    <figure class="figure-box">
+                              ┌──────────────┐
+                              │              │
+                     ┌───────▶│   PENDING    │◀───────┐
+                     │        │              │        │
+                     │        └───┬──────┬───┘        │
+        release      │            │      │            │ release
+        (officer)    │            │      │            │ (officer)
+                     │       claim│      │withdraw    │
+                     │     (officer)     │(voter)     │
+                     │            ▼      ▼            │
+                     │     ┌──────────────┐   ┌──────────────┐
+                     └─────│ UNDER_REVIEW │   │  WITHDRAWN   │
+                           │              │   │   (terminal) │
+                           └───┬──────┬───┘   └──────────────┘
+                               │      │
+                        approve│      │reject (reason required)
+                      (officer)│      │(officer)
+                               ▼      ▼
+                    ┌──────────────┐ ┌──────────────┐
+                    │   APPROVED   │ │   REJECTED   │
+                    │              │ │  (terminal)  │
+                    └───┬──────┬───┘ └──────────────┘
+                        │      │
+              submit    │      │  election closes
+             (system)   │      │       (system)
+                        ▼      ▼
+              ┌──────────────┐ ┌──────────────┐
+              │     USED     │ │   EXPIRED    │
+              │  (terminal)  │ │  (terminal)  │
+              └──────────────┘ └──────────────┘
+
+
+  PENDING ──closes──▶ EXPIRED          (system, on election closure)
+  UNDER_REVIEW ──closes──▶ EXPIRED     (system, on election closure)
+
+  ═══════════════ ILLEGAL MOVES, EACH REFUSED WITH 409 ═══════════════
+   REJECTED → APPROVED        a decided refusal is not silently reversed
+   REJECTED → UNDER_REVIEW    the voter must reapply
+   WITHDRAWN → anything       the voter cancelled
+   USED → anything            a second ballot must be impossible
+   EXPIRED → APPROVED         the election is closed
+   PENDING → APPROVED         approval must pass through review
+   PENDING → REJECTED         a refusal must pass through review
+   APPROVED → REJECTED        an assignment already exists
+   APPROVED → PENDING         would strand an assignment
+    </figure>
+    <p class="figure-caption">Figure 4.9: Remote polling request state machine</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.7.5 Transition Table and Side Effects</h3>
+    <p>The diagram is the presentation; the table is the specification. In the code, this table is a TypeScript record from each state to the array of states reachable from it, and a single guard function refuses anything not listed.</p>
+    <!--TAB:4.12:Request transition table-->
+    <table class="compact">
+        <tr><th style="width:20%;">From</th><th style="width:18%;">To</th><th style="width:24%;">Actor</th><th>Side effects required</th></tr>
+        <tr><td>&mdash;</td><td>PENDING</td><td>Voter (own)</td><td>Election CONFIGURED; centre outside own constituency; no active request; audit record</td></tr>
+        <tr><td>PENDING</td><td>UNDER_REVIEW</td><td>Verification Officer</td><td>Reviewer recorded, reviewedAt set; audit record</td></tr>
+        <tr><td>PENDING</td><td>WITHDRAWN</td><td>Voter (own)</td><td>Audit record</td></tr>
+        <tr><td>PENDING</td><td>EXPIRED</td><td>System</td><td>Election closed; audit record with system actor</td></tr>
+        <tr><td>UNDER_REVIEW</td><td>APPROVED</td><td>Verification Officer</td><td>Election not closed; voter not voted; <b>assignment created in the same transaction</b>; audit record</td></tr>
+        <tr><td>UNDER_REVIEW</td><td>REJECTED</td><td>Verification Officer</td><td>Non-empty reason stored in reviewNote; audit record</td></tr>
+        <tr><td>UNDER_REVIEW</td><td>WITHDRAWN</td><td>Voter (own)</td><td>Reviewer released; audit record</td></tr>
+        <tr><td>UNDER_REVIEW</td><td>PENDING</td><td>Verification Officer</td><td>Reviewer cleared; audit record</td></tr>
+        <tr><td>UNDER_REVIEW</td><td>EXPIRED</td><td>System</td><td>Election closed; audit record</td></tr>
+        <tr><td>APPROVED</td><td>USED</td><td>System</td><td>Written inside the ballot submission transaction; audit record</td></tr>
+        <tr><td>APPROVED</td><td>EXPIRED</td><td>System</td><td>Election closed with the assignment unused; audit record</td></tr>
+    </table>
+    <p class="table-caption">Table 4.12: Request transition table</p>
+
+    <h3>4.7.6 Invariants Held After Every Transition</h3>
+    <p>Five invariants hold in every reachable state. They are stated so that they can be tested, and Section 7.4 records the tests that check them.</p>
+    <ol class="tight">
+        <li><b>INV-1.</b> A request in APPROVED or USED has exactly one assignment; a request in any other state has none.</li>
+        <li><b>INV-2.</b> A voter has at most one request in PENDING or UNDER_REVIEW per election.</li>
+        <li><b>INV-3.</b> A request in REJECTED has a non-empty review note.</li>
+        <li><b>INV-4.</b> No transition writes to <code>Voter.registeredConstituencyId</code>.</li>
+        <li><b>INV-5.</b> Every state change has a corresponding audit record.</li>
+    </ol>
+    <p>INV-1 is enforced by the transaction and by the unique constraint on <code>requestId</code>. INV-2 is enforced by the partial unique index. INV-3 is enforced by the validation schema and a service guard. INV-4 is enforced by the absence of any such write in any repository; it is a property of the code rather than of the schema, which is why it is also the subject of a test. INV-5 is enforced by convention at every call site, and it is the invariant most vulnerable to a future developer adding a transition without an audit call &mdash; a risk noted in Section 8.3.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.7.7 Election Lifecycle</h3>
+    <p>The election has a simpler lifecycle with a stricter rule: it moves forward only, and only once per step.</p>
+    <!--FIG:4.10:Election lifecycle and its guards-->
+    <figure class="figure-box">
+    ┌──────────────┐   activate    ┌──────────────┐    close     ┌──────────────┐
+    │  CONFIGURED  │──────────────▶│    ACTIVE    │─────────────▶│    CLOSED    │
+    │              │  (admin)      │              │  (admin)     │  (terminal)  │
+    └──────────────┘               └──────────────┘              └──────────────┘
+          │                               │                            │
+          │ voters may submit             │ ballots may be             │ reconciliation
+          │ remote polling requests       │ generated and              │ and results
+          │                               │ submitted                  │ become available
+          │                               │                            │
+          └───────── requests refused ────┴── requests refused ────────┘
+                    on CLOSED              and approvals refused on CLOSED
+
+      Transition guards:
+        activate : lifecycle must be CONFIGURED  → else 409
+        close    : lifecycle must be ACTIVE      → else 409
+        closure  : every PENDING/UNDER_REVIEW/APPROVED request → EXPIRED
+                   (one audit record per request, system actor)
+    </figure>
+    <p class="figure-caption">Figure 4.10: Election lifecycle and its guards</p>
+    <p>The lifecycle interacts with the request machine in four places. Requests may be submitted only in CONFIGURED; this is deliberate, because a voter who applies after the poll has opened is applying to vote in a poll already under way, and the administration cannot review in time. Ballots may be generated and submitted only in ACTIVE. Approvals are refused once the election is CLOSED, even if the request was claimed before closure, because a permission granted after the poll has ended is worthless. And closure itself is the system transition that expires every still-open request, so the batch operation is recorded as a series of system-actor audit records rather than as a silent update.</p>
+
+    <h3>4.7.8 Indexes and Their Justification</h3>
+    <!--TAB:4.13:Indexes and their justification-->
+    <table class="compact">
+        <tr><th style="width:38%;">Index</th><th style="width:16%;">Type</th><th>Why it exists</th></tr>
+        <tr><td><code>Officer_username_key</code></td><td>Unique</td><td>Login lookup; also prevents duplicate accounts</td></tr>
+        <tr><td><code>Voter_voterNumber_key</code></td><td>Unique</td><td>OTP lookup; the public identifier on the roll</td></tr>
+        <tr><td><code>Constituency_code_key</code></td><td>Unique</td><td>Seeded by code; prevents duplicates</td></tr>
+        <tr><td><code>PollingCentre_code_key</code></td><td>Unique</td><td>Seeded by code; prevents duplicates</td></tr>
+        <tr><td><code>Election_code_key</code></td><td>Unique</td><td>Seeded by code; prevents duplicates</td></tr>
+        <tr><td><code>Candidate_electionId_constituencyId_fullName_key</code></td><td>Unique</td><td>Idempotent seeding of candidates</td></tr>
+        <tr><td><code>VoterElectionStatus_voterId_electionId_key</code></td><td><b>Unique</b></td><td><b>The duplicate-ballot guarantee</b></td></tr>
+        <tr><td><code>RemotePollingRequest_one_active_per_voter_election</code></td><td><b>Partial unique</b></td><td><b>At most one active request; raw SQL, because Prisma cannot express it</b></td></tr>
+        <tr><td><code>RemotePollingAssignment_requestId_key</code></td><td>Unique</td><td>One assignment per request</td></tr>
+        <tr><td><code>RemotePollingAssignment_voterId_electionId_key</code></td><td>Unique</td><td>One assignment per voter per election</td></tr>
+        <tr><td><code>OtpChallenge_challengeId_key</code></td><td>Unique</td><td>Verification lookup; prevents collisions</td></tr>
+    </table>
+    <p class="table-caption">Table 4.13: Indexes and their justification</p>
+    <p>Every index above is either a correctness constraint or a lookup path on a column used by every request. There are no speculative indexes: the dashboard aggregates scan small tables and the largest queries are the report and reconciliation, both of which are read at the end of an election rather than during it.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.7.9 The Partial Unique Index</h3>
+    <p>One constraint deserves separate treatment because it is the only piece of the schema that Prisma cannot express. The rule is: a voter may hold at most one <i>active</i> request per election, where active means PENDING or UNDER_REVIEW. A voter may hold any number of historical requests in terminal states, because a rejected or withdrawn application must not prevent a new one.</p>
+    <p>A plain unique index on <code>(voterId, electionId)</code> would be wrong, because it would also forbid a second request after the first was rejected. A check in application code would be wrong, because two concurrent submissions could both pass it. The correct instrument is a partial unique index, which applies uniqueness only to rows matching a predicate.</p>
+    <pre class="code-block">-- backend/prisma/migrations/20261030175226_init/migration.sql
+-- At most one active (PENDING or UNDER_REVIEW) remote polling request per
+-- voter per election. Prisma cannot express partial indexes, so this is
+-- hand-written; the constraint name must never reach a response body.
+CREATE UNIQUE INDEX "RemotePollingRequest_one_active_per_voter_election"
+ON "RemotePollingRequest" ("voterId", "electionId")
+WHERE "status" IN ('PENDING', 'UNDER_REVIEW');</pre>
+    <p>Three consequences follow. First, the database now refuses a second active request even if the service layer is bypassed, which is the property a constraint is for. Second, the service must translate the resulting error code, <code>P2002</code>, into a domain error, because a raw constraint violation must never reach a client. Third, the index is invisible to Prisma&rsquo;s schema-diffing, so a future developer who regenerates the schema will not produce this index and must be told about it &mdash; which is why the index carries a comment in the migration and is named in Appendix A.</p>
+
+    <h3>4.7.10 Migration Strategy</h3>
+    <!--TAB:4.14:Migrations-->
+    <table class="compact">
+        <tr><th style="width:34%;">Migration</th><th style="width:10%;">Objects</th><th>Content</th></tr>
+        <tr><td><code>20261030175226_init</code></td><td>11 kB</td><td>Four enums, fourteen tables, forty-two foreign keys, ten unique indexes, and the partial unique index</td></tr>
+        <tr><td><code>20261030191353_request_terminal_states</code></td><td>479 B</td><td>Adds <code>USED</code> and <code>EXPIRED</code> to the request status enum, and a <code>reviewNote</code> column</td></tr>
+    </table>
+    <p class="table-caption">Table 4.14: Migrations</p>
+    <p>Only <code>prisma migrate</code> is used; <code>prisma db push</code> is deliberately not part of the workflow, because it applies a schema without recording a migration and would silently drop the hand-written partial index on the next push. The second migration is also instructive: PostgreSQL forbids adding several enum values in one statement on versions before 11, and the migration is therefore written as two statements, which is the kind of detail that a hand-written schema change must get right and a generated one gets right for you.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:4.8 Input and Output Design-->
+    <h2>4.8 Input and Output Design</h2>
+    <p>Input and output design governs what a user is asked for, in what order, and what they are shown in return. Two rules were applied throughout. <b>Ask only for what the server needs and cannot derive</b>, and <b>show the derived value back</b> so that the user can see that the system understood.</p>
+
+    <h3>4.8.1 Input Design Principles</h3>
+    <p><b>Derive rather than ask.</b> The voter is never asked for their voter identifier when submitting a request or a ballot; it comes from the session. The voter is never asked for their constituency; it is shown, not requested. The officer is never asked which election they are acting on when the concept of a current election applies.</p>
+    <p><b>Constrain at the edge.</b> Every endpoint that accepts a body or a query parameter declares a Zod schema. The schema runs before the handler, so a malformed identifier is refused with a 400 before any database work happens. The schemas are small and literal: a UUID, a bounded string, an enum member.</p>
+    <p><b>Label the consequence.</b> The centre-selection list shows each centre with its constituency, so that a voter can see that the centre they are choosing is outside their own constituency before they submit. The interface does not hide the rule; it explains it at the moment of choice.</p>
+    <p><b>Refuse with a reason.</b> A refusal that says &ldquo;invalid request&rdquo; teaches nothing. The domain errors in this system carry a sentence: <i>choose a polling centre outside your registered constituency &mdash; your home centre is the default</i> is more useful than <i>422</i>, and it is what the code actually returns.</p>
+
+    <h3>4.8.2 Principal Input Forms</h3>
+    <!--TAB:4.15:Input form specifications-->
+    <table class="tiny">
+        <tr><th style="width:20%;">Form</th><th style="width:22%;">Field</th><th style="width:12%;">Type</th><th style="width:8%;">Req.</th><th>Validation</th></tr>
+        <tr><td>Voter sign-in</td><td><code>voterNumber</code></td><td>text</td><td>Yes</td><td>Non-empty; looked up; unknown numbers produce the uniform OTP failure</td></tr>
+        <tr><td>Voter OTP</td><td><code>challengeId</code></td><td>uuid</td><td>Yes</td><td>UUID; the challenge must exist, be unconsumed and be unexpired</td></tr>
+        <tr><td>Voter OTP</td><td><code>otp</code></td><td>text</td><td>Yes</td><td>Exactly six digits; bcrypt-compared against the stored hash</td></tr>
+        <tr><td>Officer sign-in</td><td><code>username</code></td><td>text</td><td>Yes</td><td>Non-empty; rate-limited per username and address</td></tr>
+        <tr><td>Officer sign-in</td><td><code>password</code></td><td>password</td><td>Yes</td><td>Non-empty; bcrypt-compared; failure is indistinguishable from unknown user</td></tr>
+        <tr><td>Password change</td><td><code>currentPassword</code></td><td>password</td><td>Yes</td><td>Verified before any change; rate-limited</td></tr>
+        <tr><td>Password change</td><td><code>newPassword</code></td><td>password</td><td>Yes</td><td>Minimum length enforced by the schema</td></tr>
+        <tr><td>Remote request</td><td><code>electionId</code></td><td>uuid</td><td>Yes</td><td>UUID; election must exist and be CONFIGURED</td></tr>
+        <tr><td>Remote request</td><td><code>pollingCentreId</code></td><td>uuid</td><td>Yes</td><td>UUID; centre must exist and be outside the registered constituency</td></tr>
+        <tr><td>Remote request</td><td><code>reason</code></td><td>textarea</td><td>No</td><td>Maximum 1000 characters</td></tr>
+        <tr><td>Rejection</td><td><code>reason</code></td><td>textarea</td><td>Yes</td><td>Minimum 1, maximum 1000 characters; stored and shown to the voter</td></tr>
+        <tr><td>Ballot</td><td><code>candidateId</code></td><td>uuid</td><td>Yes</td><td>UUID; the candidate must stand in the voter&rsquo;s registered constituency for the election</td></tr>
+        <tr><td>Verification</td><td><code>query</code></td><td>text</td><td>Yes</td><td>Trimmed voter number; 404 if not found</td></tr>
+        <tr><td>Request report</td><td><code>status</code></td><td>enum</td><td>No</td><td>One of the seven status values; optional filter</td></tr>
+        <tr><td>Audit read</td><td><code>action</code></td><td>text</td><td>No</td><td>Maximum 100 characters; exact match</td></tr>
+        <tr><td>Audit read</td><td><code>limit</code></td><td>integer</td><td>No</td><td>1 to 500, default 100</td></tr>
+    </table>
+    <p class="table-caption">Table 4.15: Input form specifications</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.8.3 Output Design Principles</h3>
+    <p><b>Return the smallest sufficient shape.</b> A ballot response contains the election, the constituency, the candidates and, if one exists, the assignment. It does not contain the voter identifier, because the caller already knows who they are and nothing downstream needs it. A submission response contains an opaque reference and a timestamp, and nothing else &mdash; in particular it does not echo the choice back.</p>
+    <p><b>Make the state visible.</b> Every request shape carries its status as an enum value, and the interface renders it as a badge with a colour and a word. A voter should never have to infer their position in the workflow.</p>
+    <p><b>Explain refusals.</b> Domain errors carry a sentence that names the remedy where a remedy exists.</p>
+    <p><b>Never leak structure.</b> The error handler converts an unexpected failure into a fixed 500 body and logs the name only. A Prisma error, a constraint name or a stack trace never reaches a client.</p>
+
+    <h3>4.8.4 Principal Output Shapes</h3>
+    <!--TAB:4.16:Output response shapes-->
+    <table class="tiny">
+        <tr><th style="width:26%;">Endpoint</th><th>Response shape</th></tr>
+        <tr><td><code>POST /auth/voter/otp</code></td><td><code>{ challengeId, expiresAt }</code> &mdash; the code itself is not returned outside the test environment</td></tr>
+        <tr><td><code>POST /auth/officer/login</code></td><td><code>{ token, expiresAt, officer: { id, username, role, displayName } }</code></td></tr>
+        <tr><td><code>GET /voters/me</code></td><td><code>{ id, voterNumber, fullName, registeredConstituency: {id,code,name}, homePollingCentre: {id,code,name}|null }</code></td></tr>
+        <tr><td><code>POST /voters/eligibility</code></td><td><code>{ eligible, election, checks: [{key,label,passed}] }</code></td></tr>
+        <tr><td><code>GET /remote-polling/dashboard</code></td><td><code>{ voter, election, request, assignment, hasVoted }</code></td></tr>
+        <tr><td><code>POST /remote-polling/requests</code></td><td><code>{ id, status, reason, reviewNote, submittedAt, pollingCentre, election }</code></td></tr>
+        <tr><td><code>POST .../approve</code></td><td><code>{ id, status: &quot;APPROVED&quot;, assignmentId }</code></td></tr>
+        <tr><td><code>GET /simulator/controlled-ballot</code></td><td><code>{ election, constituency, candidates[], remoteAssignment|null }</code></td></tr>
+        <tr><td><code>POST .../controlled-ballot/submit</code></td><td><code>{ ballotReference, submittedAt }</code> &mdash; <b>no choice is returned</b></td></tr>
+        <tr><td><code>GET .../reconciliation</code></td><td><code>{ election, reconciledAt, rows[{constituency, ballotsIssued, ballotsRecorded, discrepancy}], totalDiscrepancy }</code></td></tr>
+        <tr><td><code>GET .../results</code></td><td><code>{ election, results[{constituency, candidate, votes}] }</code></td></tr>
+        <tr><td><code>GET /admin/dashboard</code></td><td><code>{ elections{configured,active,closed}, voters, pollingCentres, submittedBallots, requests{...,total,approvalRate} }</code></td></tr>
+        <tr><td><code>GET /audit/records</code></td><td><code>[{ id, actorType, actorId, action, entityType, entityRef, createdAt }]</code></td></tr>
+        <tr><td>Any error</td><td><code>{ error: &quot;&lt;a sentence&gt;&quot; }</code> &mdash; always this shape, never a nested error object</td></tr>
+    </table>
+    <p class="table-caption">Table 4.16: Output response shapes</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.8.5 Output Design for the Ballot Screen</h3>
+    <p>The ballot screen is the most consequential output in the system, so its design is specified in detail. The mock-up below shows the layout. Three features are deliberate: the registered constituency is displayed prominently with an explanatory sentence, each candidate is a large selectable row rather than a small radio button, and the remote centre, when one exists, appears as context rather than as the source of the ballot.</p>
+    <!--FIG:4.11:Output design - controlled ballot screen-->
+    <div class="screenshot">
+        <div class="navbar"><span class="brand">Vote Anywhere</span><span class="navlinks">Voter Portal &nbsp;·&nbsp; VA-0001 &nbsp;·&nbsp; Sign out</span></div>
+        <div class="sidebar">
+            <div class="menu-label">VOTER MENU</div>
+            <div class="menu-item">Dashboard</div>
+            <div class="menu-item">Eligibility Check</div>
+            <div class="menu-item">Remote Polling Request</div>
+            <div class="menu-item">Request Status &amp; Centre</div>
+            <div class="menu-item active">Controlled Ballot</div>
+        </div>
+        <div class="body">
+            <div class="page-title">Controlled Ballot</div>
+            <div class="page-sub">General Election 2026 (Simulated) · Polling is open</div>
+            <div class="card" style="background:#eef2f7;">
+                <b>Your registered constituency: Chennai South (CHN-S)</b><br>
+                <span class="muted">Your ballot is generated from your registration, not from where you vote.</span>
+            </div>
+            <div class="card">
+                <span class="muted">REMOTE POLLING ASSIGNMENT</span><br>
+                You may vote at <b>Madurai Central Polling Centre 1 (MDU-C-01)</b>
+            </div>
+            <div class="divider"></div>
+            <div class="ballot-option selected"><span>● &nbsp;Kavin Raj</span><span class="badge info">Lamp</span></div>
+            <div class="ballot-option"><span>○ &nbsp;Divya Nair</span><span class="badge grey">Book</span></div>
+            <div class="divider"></div>
+            <span class="btn btn-primary">Submit ballot</span>
+            <span class="btn">Cancel</span>
+            <div class="muted" style="margin-top:6px;">Your choice is sealed before it is stored. You will receive a ballot reference, not a record of what you chose.</div>
+        </div>
+    </div>
+    <p class="figure-caption">Figure 4.11: Output design &mdash; controlled ballot screen</p>
+
+    <h3>4.8.6 Output Design for the Voter Dashboard</h3>
+    <p>The dashboard answers four questions in one screen: who am I registered as, what election is running, where does my request stand, and have I already voted. The stepper is the primary instrument, because the workflow has seven states and a voter should not have to remember which are good.</p>
+    <!--FIG:4.12:Output design - voter dashboard-->
+    <div class="screenshot">
+        <div class="navbar"><span class="brand">Vote Anywhere</span><span class="navlinks">Voter Portal &nbsp;·&nbsp; VA-0001 &nbsp;·&nbsp; Sign out</span></div>
+        <div class="sidebar">
+            <div class="menu-label">VOTER MENU</div>
+            <div class="menu-item active">Dashboard</div>
+            <div class="menu-item">Eligibility Check</div>
+            <div class="menu-item">Remote Polling Request</div>
+            <div class="menu-item">Request Status &amp; Centre</div>
+            <div class="menu-item">Controlled Ballot</div>
+        </div>
+        <div class="body">
+            <div class="page-title">Dashboard</div>
+            <div class="page-sub">Arjun Karthik · VA-0001</div>
+            <div class="row">
+                <div class="col card"><span class="muted">REGISTERED CONSTITUENCY</span><br><b>Chennai South</b></div>
+                <div class="col card"><span class="muted">HOME POLLING CENTRE</span><br><b>Chennai South Polling Centre 1</b></div>
+            </div>
+            <div class="row">
+                <div class="col card"><span class="muted">CURRENT ELECTION</span><br><b>General Election 2026</b><br><span class="badge">ACTIVE</span></div>
+                <div class="col card"><span class="muted">BALLOT STATUS</span><br><b>Not yet submitted</b></div>
+            </div>
+            <div class="divider"></div>
+            <div class="muted">REQUEST PROGRESS</div>
+            <div class="stepper">
+                <div class="step done">Request submitted<br><span class="muted">12 Oct</span></div>
+                <div class="step done">Officer review<br><span class="muted">13 Oct</span></div>
+                <div class="step current">Approved<br><span class="muted">MDU-C-01</span></div>
+                <div class="step">Ballot submitted</div>
+            </div>
+            <span class="btn btn-primary">Open controlled ballot</span>
+            <span class="btn">View request status</span>
+        </div>
+    </div>
+    <p class="figure-caption">Figure 4.12: Output design &mdash; voter dashboard</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.8.7 Output Design for the Officer Review Queue</h3>
+    <p>The officer screen is designed for speed of decision and for the audit trail that the decision will create. The reviewer sees the voter, the requested centre and its constituency, the stated reason, and the two actions. The reason field for a rejection appears only when a rejection is being composed, so that the officer cannot approve without reading it.</p>
+    <!--FIG:4.13:Output design - officer review queue-->
+    <div class="screenshot">
+        <div class="navbar"><span class="brand">Vote Anywhere</span><span class="navlinks">Officer Portal &nbsp;·&nbsp; Vikram Surya &nbsp;·&nbsp; Sign out</span></div>
+        <div class="sidebar">
+            <div class="menu-label">OFFICER MENU</div>
+            <div class="menu-item active">Dashboard</div>
+            <div class="menu-item">Verification &amp; Check-in</div>
+        </div>
+        <div class="body">
+            <div class="page-title">Remote Polling Review Queue</div>
+            <div class="page-sub">Filter by status · PENDING (2) · UNDER_REVIEW (1)</div>
+            <table>
+                <tr><th>Voter</th><th>Registered</th><th>Requested centre</th><th>Status</th><th>Action</th></tr>
+                <tr><td>VA-0001<br><span class="muted">Arjun Karthik</span></td><td>Chennai South</td><td>MDU-C-01<br><span class="muted">Madurai Central</span></td><td><span class="badge warn">PENDING</span></td><td><span class="btn">Claim</span></td></tr>
+                <tr><td>VA-0002<br><span class="muted">Meera Lakshmi</span></td><td>Madurai Central</td><td>CHN-S-01<br><span class="muted">Chennai South</span></td><td><span class="badge info">UNDER_REVIEW</span></td><td><span class="btn">Approve</span> <span class="btn">Reject</span></td></tr>
+            </table>
+            <div class="card">
+                <span class="muted">STATED REASON</span><br>
+                Working away from registered constituency during the election period.
+            </div>
+            <div class="form-group"><label>Rejection reason</label><span class="form-control">Required if you reject</span></div>
+            <span class="btn btn-primary">Approve and assign</span>
+            <span class="btn">Reject</span>
+        </div>
+    </div>
+    <p class="figure-caption">Figure 4.13: Output design &mdash; officer review queue</p>
+
+    <h3>4.8.8 Design Review Checklist</h3>
+    <p>The input and output design was reviewed against the following checklist before implementation, and again after.</p>
+    <!--TAB:4.17:Input and output design checklist-->
+    <table class="compact">
+        <tr><th style="width:6%;">#</th><th style="width:58%;">Check</th><th>Result</th></tr>
+        <tr><td>1</td><td>Does any form ask for a value the server can derive from the session?</td><td>No</td></tr>
+        <tr><td>2</td><td>Does any response contain a candidate choice?</td><td>No, except the results aggregate</td></tr>
+        <tr><td>3</td><td>Does any response pair a voter identifier with a ballot reference?</td><td>No</td></tr>
+        <tr><td>4</td><td>Is every refusal accompanied by a sentence a user can act on?</td><td>Yes, for domain errors</td></tr>
+        <tr><td>5</td><td>Can any error response expose a stack trace or constraint name?</td><td>No; one error handler</td></tr>
+        <tr><td>6</td><td>Is the registered constituency visible wherever the ballot is shown?</td><td>Yes, with an explanatory sentence</td></tr>
+    </table>
+    <p class="table-caption">Table 4.17: Input and output design checklist</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>4.8.9 Design Summary</h3>
+    <p>Chapter 4 has established eight things. An architecture of three tiers deployed as a modular monolith, chosen for transactional integrity. A request path in which authentication, authorization, validation and error translation are all middleware, and in which revocation is immediate because the session row is re-read on every request. Three levels of data flow, of which the significant feature is a non-arrow between the identity store and the choice store. A use case model with five actors and a realisation matrix that maps every use case to a route and a method. A class model in which the two most important facts are absences: the assignment has no constituency and the ballot has no voter. An entity-relationship model with fifteen relationship lines, of which one is deliberately missing. A database design in which four constraints carry the invariants that matter, including one hand-written partial index. And an input-output design in which the ballot screen explains the Core Rule to the voter at the moment it matters.</p>
+    <p>The design decisions that a reader should carry into Chapter 5 are these:</p>
+    <ul>
+        <li>The Core Rule is enforced by a function signature and by two absences in the schema, not by a validation check.</li>
+        <li>Duplicate ballots are prevented by a unique constraint evaluated inside a transaction, not by a read-then-write.</li>
+        <li>The transition table is the single source of legality for request state changes.</li>
+        <li>The assignment and the approval are written in one transaction because an approved request without an assignment is an incoherent state.</li>
+        <li>The secrecy boundary is a schema boundary: two tables, no key, no relation.</li>
+        <li>Authorization is an explicit allow-list on every route, so the default is refusal.</li>
+        <li>Ballot verification returns a boolean and counting is a separate function, so the verification path has no type-level way to disclose a choice.</li>
+    </ul>
+    <p>Chapter 5 turns to the technology stack that implements this design, and Chapter 6 to the implementation itself &mdash; the modules, the algorithms, the pseudocode and the code sketches.</p>
+    <div class="page-number">{{PN}}</div>
+</div>

@@ -1,0 +1,340 @@
+<div class="page">
+    <!--TOC:chapter:APPENDIX A: DATA DICTIONARY-->
+    <h1 class="chapter-title">APPENDIX A<br>DATA DICTIONARY</h1>
+    <p>This appendix records every table, column and constraint created by the two migrations. It is the reference behind Section 4.7 and is intended to be read alongside <code>backend/prisma/schema.prisma</code>.</p>
+
+    <h2>A.1 <code>Officer</code></h2>
+    <table class="tiny">
+        <tr><th style="width:22%;">Column</th><th style="width:18%;">Type</th><th style="width:10%;">Null</th><th>Notes</th></tr>
+        <tr><td><code>id</code></td><td>uuid</td><td>No</td><td>Primary key</td></tr>
+        <tr><td><code>username</code></td><td>text</td><td>No</td><td>Unique; used at login</td></tr>
+        <tr><td><code>passwordHash</code></td><td>text</td><td>No</td><td>bcrypt, cost 12</td></tr>
+        <tr><td><code>role</code></td><td>OfficerRole</td><td>No</td><td>One of four roles; the voter role is not stored here</td></tr>
+        <tr><td><code>displayName</code></td><td>text</td><td>No</td><td>Shown in the portal header</td></tr>
+        <tr><td><code>createdAt</code></td><td>timestamp</td><td>No</td><td>Default now</td></tr>
+    </table>
+
+    <h2>A.2 <code>Voter</code></h2>
+    <table class="tiny">
+        <tr><th style="width:22%;">Column</th><th style="width:18%;">Type</th><th style="width:10%;">Null</th><th>Notes</th></tr>
+        <tr><td><code>id</code></td><td>uuid</td><td>No</td><td>Primary key</td></tr>
+        <tr><td><code>voterNumber</code></td><td>text</td><td>No</td><td>Unique; the public roll identifier</td></tr>
+        <tr><td><code>fullName</code></td><td>text</td><td>No</td><td>Fictional</td></tr>
+        <tr><td><code>registeredConstituencyId</code></td><td>uuid</td><td>No</td><td>FK &rarr; Constituency. <b>The only source of the ballot; never written by the remote workflow</b></td></tr>
+        <tr><td><code>homePollingCentreId</code></td><td>uuid</td><td>Yes</td><td>FK &rarr; PollingCentre. The default place of voting</td></tr>
+        <tr><td><code>createdAt</code></td><td>timestamp</td><td>No</td><td>Default now</td></tr>
+    </table>
+
+    <h2>A.3 <code>Constituency</code> and <code>PollingCentre</code></h2>
+    <table class="tiny">
+        <tr><th style="width:22%;">Table / column</th><th style="width:18%;">Type</th><th style="width:10%;">Null</th><th>Notes</th></tr>
+        <tr><td>Constituency.<code>id</code></td><td>uuid</td><td>No</td><td>Primary key</td></tr>
+        <tr><td>Constituency.<code>code</code></td><td>text</td><td>No</td><td>Unique; <code>CHN-S</code>, <code>MDU-C</code></td></tr>
+        <tr><td>Constituency.<code>name</code></td><td>text</td><td>No</td><td>Chennai South, Madurai Central</td></tr>
+        <tr><td>PollingCentre.<code>id</code></td><td>uuid</td><td>No</td><td>Primary key</td></tr>
+        <tr><td>PollingCentre.<code>code</code></td><td>text</td><td>No</td><td>Unique; <code>CHN-S-01</code>, <code>MDU-C-01</code></td></tr>
+        <tr><td>PollingCentre.<code>constituencyId</code></td><td>uuid</td><td>No</td><td>FK &rarr; Constituency; the centre&rsquo;s own location</td></tr>
+    </table>
+
+    <h2>A.4 <code>Election</code>, <code>ElectionConstituency</code> and <code>Candidate</code></h2>
+    <table class="tiny">
+        <tr><th style="width:30%;">Table / column</th><th style="width:18%;">Type</th><th style="width:10%;">Null</th><th>Notes</th></tr>
+        <tr><td>Election.<code>id</code>, <code>code</code>, <code>name</code></td><td>uuid, text, text</td><td>No</td><td><code>code</code> unique</td></tr>
+        <tr><td>Election.<code>lifecycle</code></td><td>ElectionLifecycle</td><td>No</td><td>CONFIGURED &rarr; ACTIVE &rarr; CLOSED</td></tr>
+        <tr><td>Election.<code>startsAt</code>, <code>endsAt</code></td><td>timestamp</td><td>No</td><td>Window of the poll</td></tr>
+        <tr><td>ElectionConstituency.<code>electionId</code>, <code>constituencyId</code></td><td>uuid, uuid</td><td>No</td><td>Composite primary key</td></tr>
+        <tr><td>Candidate.<code>id</code>, <code>fullName</code>, <code>symbol</code></td><td>uuid, text, text</td><td>id/name No; symbol Yes</td><td><code>symbol</code> is decorative</td></tr>
+        <tr><td>Candidate.<code>electionId</code>, <code>constituencyId</code></td><td>uuid, uuid</td><td>No</td><td><b>Composite FK &rarr; ElectionConstituency</b>, so a candidate cannot stand in a constituency the election does not cover</td></tr>
+    </table>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h2>A.5 <code>VoterElectionStatus</code> &mdash; identity side</h2>
+    <table class="tiny">
+        <tr><th style="width:26%;">Column</th><th style="width:18%;">Type</th><th style="width:10%;">Null</th><th>Notes</th></tr>
+        <tr><td><code>id</code></td><td>uuid</td><td>No</td><td>Primary key</td></tr>
+        <tr><td><code>voterId</code></td><td>uuid</td><td>No</td><td>FK &rarr; Voter</td></tr>
+        <tr><td><code>electionId</code></td><td>uuid</td><td>No</td><td>FK &rarr; Election</td></tr>
+        <tr><td><code>hasVoted</code></td><td>boolean</td><td>No</td><td>Default false; the guarded update sets it true</td></tr>
+        <tr><td><code>votedAt</code></td><td>timestamp</td><td>Yes</td><td>Set with <code>hasVoted</code></td></tr>
+        <tr><td colspan="4"><b>Unique (voterId, electionId)</b> &mdash; INV-1 and the duplicate-ballot guarantee</td></tr>
+    </table>
+
+    <h2>A.6 <code>SubmittedBallot</code> &mdash; choice side</h2>
+    <table class="tiny">
+        <tr><th style="width:26%;">Column</th><th style="width:18%;">Type</th><th style="width:10%;">Null</th><th>Notes</th></tr>
+        <tr><td><code>ballotReference</code></td><td>text</td><td>No</td><td>Primary key; 32 random hex characters</td></tr>
+        <tr><td><code>electionId</code></td><td>uuid</td><td>No</td><td>FK &rarr; Election</td></tr>
+        <tr><td><code>constituencyId</code></td><td>uuid</td><td>No</td><td>FK &rarr; Constituency; the voter&rsquo;s <b>registered</b> constituency</td></tr>
+        <tr><td><code>nonce</code></td><td>bytes</td><td>No</td><td>12 bytes, unique per seal</td></tr>
+        <tr><td><code>ciphertext</code></td><td>bytes</td><td>No</td><td>Sealed candidate identifier</td></tr>
+        <tr><td><code>authTag</code></td><td>bytes</td><td>No</td><td>GCM tag, 16 bytes</td></tr>
+        <tr><td><code>submittedAt</code></td><td>timestamp</td><td>No</td><td>Server time</td></tr>
+        <tr><td colspan="4"><b>There is no voter column and no relation to any identity model</b></td></tr>
+    </table>
+
+    <h2>A.7 <code>RemotePollingRequest</code> and <code>RemotePollingAssignment</code></h2>
+    <table class="tiny">
+        <tr><th style="width:30%;">Table / column</th><th style="width:18%;">Type</th><th style="width:10%;">Null</th><th>Notes</th></tr>
+        <tr><td>Request.<code>id</code></td><td>uuid</td><td>No</td><td>Primary key</td></tr>
+        <tr><td>Request.<code>voterId</code>, <code>electionId</code></td><td>uuid</td><td>No</td><td>FKs; the partial index applies to this pair</td></tr>
+        <tr><td>Request.<code>pollingCentreId</code></td><td>uuid</td><td>No</td><td>FK &rarr; PollingCentre; <b>a centre, never a constituency</b></td></tr>
+        <tr><td>Request.<code>reason</code></td><td>text</td><td>Yes</td><td>Voter&rsquo;s stated reason, up to 1000 characters</td></tr>
+        <tr><td>Request.<code>reviewNote</code></td><td>text</td><td>Yes</td><td>Required non-empty when the status is REJECTED</td></tr>
+        <tr><td>Request.<code>status</code></td><td>RemotePollingRequestStatus</td><td>No</td><td>Seven values; default PENDING</td></tr>
+        <tr><td>Request.<code>reviewedById</code>, <code>reviewedAt</code></td><td>uuid, timestamp</td><td>Yes</td><td>Set on claim; cleared on release</td></tr>
+        <tr><td>Assignment.<code>requestId</code></td><td>uuid</td><td>No</td><td>FK &rarr; Request, <b>unique</b>: one assignment per request</td></tr>
+        <tr><td>Assignment.<code>voterId</code>, <code>electionId</code></td><td>uuid</td><td>No</td><td><b>Unique pair</b>: one assignment per voter per election</td></tr>
+        <tr><td>Assignment.<code>assignedById</code></td><td>uuid</td><td>No</td><td>FK &rarr; Officer: who approved</td></tr>
+        <tr><td colspan="4">No constituency column exists on either table</td></tr>
+    </table>
+
+    <h2>A.8 <code>OtpChallenge</code>, <code>Session</code> and <code>AuditRecord</code></h2>
+    <table class="tiny">
+        <tr><th style="width:30%;">Table / column</th><th style="width:18%;">Type</th><th style="width:10%;">Null</th><th>Notes</th></tr>
+        <tr><td>OtpChallenge.<code>challengeId</code></td><td>uuid</td><td>No</td><td>Unique; returned to the client</td></tr>
+        <tr><td>OtpChallenge.<code>otpHash</code></td><td>text</td><td>No</td><td>bcrypt; the code itself is never stored</td></tr>
+        <tr><td>OtpChallenge.<code>expiresAt</code>, <code>attemptCount</code>, <code>consumedAt</code></td><td>timestamp, int, timestamp</td><td>consumedAt Yes</td><td>Five-minute life, five-attempt cap, single use</td></tr>
+        <tr><td>Session.<code>id</code></td><td>uuid</td><td>No</td><td>Primary key; equals the JWT <code>jti</code> claim</td></tr>
+        <tr><td>Session.<code>actorType</code>, <code>role</code></td><td>ActorType, text</td><td>No</td><td>OFFICER, VOTER or SYSTEM</td></tr>
+        <tr><td>Session.<code>officerId</code>, <code>voterId</code></td><td>uuid</td><td>Both Yes</td><td>Exactly one is set, according to <code>actorType</code></td></tr>
+        <tr><td>Session.<code>expiresAt</code>, <code>revokedAt</code></td><td>timestamp</td><td>revokedAt Yes</td><td>Re-read on every request</td></tr>
+        <tr><td>AuditRecord.<code>actorType</code>, <code>actorId</code></td><td>ActorType, text</td><td>actorId Yes</td><td>Who performed the action</td></tr>
+        <tr><td>AuditRecord.<code>action</code>, <code>entityType</code>, <code>entityRef</code></td><td>text</td><td>entityType/Ref Yes</td><td><b>String references, deliberately not foreign keys</b></td></tr>
+    </table>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:chapter:APPENDIX B: API REFERENCE-->
+    <h1 class="chapter-title">APPENDIX B<br>API REFERENCE</h1>
+    <p>All paths are relative to <code>/api</code>. Every route except <code>/health</code> and the three sign-in routes requires a bearer token. Errors share one body: <code>{ "error": "&lt;message&gt;" }</code>.</p>
+
+    <h2>B.1 Authentication</h2>
+    <table class="tiny">
+        <tr><th style="width:38%;">Method and path</th><th style="width:20%;">Access</th><th>Purpose</th></tr>
+        <tr><td><code>GET /health</code></td><td>Public</td><td>Liveness and database reachability</td></tr>
+        <tr><td><code>POST /auth/voter/otp</code></td><td>Public (5 / 15 min)</td><td>Issue a challenge for a voter number</td></tr>
+        <tr><td><code>POST /auth/voter/otp/verify</code></td><td>Public (10 / 15 min)</td><td>Consume a challenge and issue a session</td></tr>
+        <tr><td><code>POST /auth/officer/login</code></td><td>Public (10 / 15 min)</td><td>Password sign-in</td></tr>
+        <tr><td><code>GET /auth/session</code></td><td>Any authenticated</td><td>Read the current session</td></tr>
+        <tr><td><code>DELETE /auth/session</code></td><td>Voter</td><td>Revoke own session</td></tr>
+        <tr><td><code>DELETE /auth/sessions/:id</code></td><td>Administrator</td><td>Revoke any session</td></tr>
+        <tr><td><code>POST /auth/password</code></td><td>Officer (10 / 15 min)</td><td>Change own password</td></tr>
+    </table>
+
+    <h2>B.2 Voters and Elections</h2>
+    <table class="tiny">
+        <tr><th style="width:38%;">Method and path</th><th style="width:20%;">Access</th><th>Purpose</th></tr>
+        <tr><td><code>GET /voters/me</code></td><td>Voter</td><td>Profile with registered constituency and home centre</td></tr>
+        <tr><td><code>POST /voters/eligibility</code></td><td>Voter</td><td>Four named eligibility checks</td></tr>
+        <tr><td><code>GET /admin/elections</code></td><td>Administrator</td><td>List elections with lifecycle</td></tr>
+        <tr><td><code>GET /admin/candidates</code></td><td>Administrator</td><td>Candidates for an election and constituency</td></tr>
+        <tr><td><code>GET /admin/centres</code></td><td>Administrator</td><td>All polling centres with their constituencies</td></tr>
+        <tr><td><code>GET /admin/reports</code></td><td>Administrator</td><td>Request report with optional status filter</td></tr>
+        <tr><td><code>POST /admin/elections/:id/activate</code></td><td>Administrator</td><td>CONFIGURED &rarr; ACTIVE</td></tr>
+        <tr><td><code>POST /admin/elections/:id/close</code></td><td>Administrator</td><td>ACTIVE &rarr; CLOSED; expires open requests</td></tr>
+    </table>
+
+    <h2>B.3 Remote Polling</h2>
+    <table class="tiny">
+        <tr><th style="width:38%;">Method and path</th><th style="width:20%;">Access</th><th>Purpose</th></tr>
+        <tr><td><code>GET /remote-polling/dashboard</code></td><td>Voter</td><td>Composed voter view</td></tr>
+        <tr><td><code>GET /remote-polling/centres</code></td><td>Any authenticated</td><td>Centres with their constituencies</td></tr>
+        <tr><td><code>POST /remote-polling/requests</code></td><td>Voter</td><td>Submit; refuses own constituency and duplicates</td></tr>
+        <tr><td><code>GET /remote-polling/requests/mine</code></td><td>Voter</td><td>Own request</td></tr>
+        <tr><td><code>POST /remote-polling/requests/mine/withdraw</code></td><td>Voter</td><td>Withdraw an active request</td></tr>
+        <tr><td><code>GET /remote-polling/assignments/mine</code></td><td>Voter</td><td>Own assignment, if approved</td></tr>
+        <tr><td><code>GET /remote-polling/requests</code></td><td>VO, PCO</td><td>Review queue with optional status filter</td></tr>
+        <tr><td><code>POST /remote-polling/requests/:id/claim</code></td><td>VO</td><td>PENDING &rarr; UNDER_REVIEW</td></tr>
+        <tr><td><code>POST /remote-polling/requests/:id/release</code></td><td>VO</td><td>UNDER_REVIEW &rarr; PENDING</td></tr>
+        <tr><td><code>POST /remote-polling/requests/:id/approve</code></td><td>VO</td><td>UNDER_REVIEW &rarr; APPROVED plus assignment</td></tr>
+        <tr><td><code>POST /remote-polling/requests/:id/reject</code></td><td>VO</td><td>UNDER_REVIEW &rarr; REJECTED with reason</td></tr>
+    </table>
+
+    <h2>B.4 Ballots and Results</h2>
+    <table class="tiny">
+        <tr><th style="width:38%;">Method and path</th><th style="width:20%;">Access</th><th>Purpose</th></tr>
+        <tr><td><code>GET /simulator/controlled-ballot</code></td><td>Voter</td><td>The registered constituency ballot</td></tr>
+        <tr><td><code>POST /simulator/controlled-ballot/submit</code></td><td>Voter</td><td>Seal and store; returns a reference only</td></tr>
+        <tr><td><code>GET /simulator/elections/:id/reconciliation</code></td><td>Administrator, Auditor</td><td>Count comparison; refused before closure</td></tr>
+        <tr><td><code>GET /simulator/elections/:id/results</code></td><td>Authenticated <b>(no role &mdash; defect D-3)</b></td><td>Aggregate results after closure</td></tr>
+        <tr><td><code>GET /officer/dashboard</code></td><td>VO, PCO, Auditor</td><td>Role-aware counts</td></tr>
+        <tr><td><code>GET /officer/verification</code></td><td>VO, PCO</td><td>Voter lookup at a centre</td></tr>
+        <tr><td><code>GET /admin/dashboard</code></td><td>Administrator</td><td>Aggregate administration report</td></tr>
+        <tr><td><code>GET /audit/records</code></td><td>Auditor</td><td>Filtered audit trail</td></tr>
+    </table>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:chapter:APPENDIX C: CODE LISTINGS-->
+    <h1 class="chapter-title">APPENDIX C<br>CODE LISTINGS</h1>
+    <p>The listings below are the schema sections from which the design claims are drawn. They are abridged to the relevant models and comments.</p>
+
+    <h2>C.1 The Core Rule as a Prisma Comment</h2>
+    <pre class="code-block">model Voter {
+  id                      String  @id @default(uuid())
+  voterNumber             String  @unique
+  fullName                String
+  // The registered constituency is the ONLY source of a ballot.
+  // No remote polling workflow may write this field.
+  registeredConstituencyId String
+  registeredConstituency  Constituency @relation(fields: [registeredConstituencyId], references: [id])
+  homePollingCentreId     String?
+  homePollingCentre       PollingCentre? @relation(fields: [homePollingCentreId], references: [id])
+  createdAt               DateTime @default(now())
+}
+
+model RemotePollingAssignment {
+  id              String  @id @default(uuid())
+  requestId       String  @unique
+  voterId         String
+  electionId      String
+  pollingCentreId String
+  assignedById    String
+  createdAt       DateTime @default(now())
+  // Deliberately NO constituencyId: an assignment changes where,
+  // never what.
+  @@unique([voterId, electionId])
+}
+
+model SubmittedBallot {
+  ballotReference String   @id
+  electionId      String
+  constituencyId  String   // the voter's REGISTERED constituency
+  nonce           Bytes
+  ciphertext      Bytes
+  authTag         Bytes
+  submittedAt     DateTime @default(now())
+  // Deliberately NO voterId and no relation to Voter or
+  // VoterElectionStatus: the identity side and the choice side
+  // are separated by the absence of a join path.
+}</pre>
+
+    <h2>C.2 The Transition Table</h2>
+    <pre class="code-block">export const TRANSITIONS: Record&lt;Status, readonly Status[]&gt; = {
+  PENDING:      ['UNDER_REVIEW', 'WITHDRAWN', 'EXPIRED'],
+  UNDER_REVIEW: ['APPROVED', 'REJECTED', 'WITHDRAWN', 'PENDING', 'EXPIRED'],
+  APPROVED:     ['USED', 'EXPIRED'],
+  REJECTED:     [],
+  WITHDRAWN:    [],
+  USED:         [],
+  EXPIRED:      [],
+} as const;
+
+export function assertLegal(from: Status, to: Status): void {
+  if (!TRANSITIONS[from].includes(to))
+    throw new IllegalTransitionError(from, to);   // → HTTP 409
+}</pre>
+
+    <h2>C.3 The Verification and Counting Split</h2>
+    <pre class="code-block">// Returns a boolean. Exposes no plaintext to any caller.
+export function verifyBallot(sealed: Sealed): boolean {
+  try {
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, sealed.nonce);
+    decipher.setAAD(Buffer.from(AAD(sealed.ref, sealed.electionId, sealed.constituencyId)));
+    decipher.setAuthTag(sealed.authTag);
+    decipher.update(sealed.ciphertext);
+    decipher.final();
+    return true;
+  } catch { return false; }
+}
+
+// Returns the plaintext. Called only from the simulator, only after closure.
+export function openBallotForCounting(sealed: Sealed): string {
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, sealed.nonce);
+  decipher.setAAD(Buffer.from(AAD(sealed.ref, sealed.electionId, sealed.constituencyId)));
+  decipher.setAuthTag(sealed.authTag);
+  return Buffer.concat([decipher.update(sealed.ciphertext), decipher.final()])
+    .toString('utf8');
+}</pre>
+    <p>The split is the point. Two functions, two return types, one caller each. A path that must not disclose a choice is given the function that cannot.</p>
+
+    <h2>C.4 The Eligibility Computation</h2>
+    <pre class="code-block">const checks = [
+  { key: 'on_roll',        passed: Boolean(voter) },
+  { key: 'in_election',    passed: coversElection },
+  { key: 'not_voted',      passed: !status?.hasVoted },
+  { key: 'has_home_centre',passed: Boolean(voter?.homePollingCentre) },
+];
+return { eligible: checks.every(c =&gt; c.passed), election, checks };</pre>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:chapter:APPENDIX D: TEST CASE INDEX-->
+    <h1 class="chapter-title">APPENDIX D<br>TEST CASE INDEX</h1>
+    <p>Every automated case is listed with its suite and the guarantee it asserts. The index exists so that a claim in Chapter 7 can be traced to a named case.</p>
+
+    <h2>D.1 <code>auth.test.ts</code> &mdash; 15 cases</h2>
+    <table class="tiny">
+        <tr><th style="width:44%;">Case</th><th>Assertion</th></tr>
+        <tr><td>issues a challenge for a known voter</td><td>201 with a challenge identifier and an expiry</td></tr>
+        <tr><td>refuses an unknown voter number with the uniform body</td><td>Identical shape and message to a known number</td></tr>
+        <tr><td>stores a bcrypt hash, never the code</td><td>The row contains a hash and no plaintext</td></tr>
+        <tr><td>verifies a correct code and issues a session</td><td>Token returned; session row exists with <code>jti</code></td></tr>
+        <tr><td>refuses an incorrect code and increments the attempt count</td><td>401; <code>attemptCount</code> increases by one</td></tr>
+        <tr><td>refuses a consumed challenge</td><td>401 on replay</td></tr>
+        <tr><td>refuses an expired challenge</td><td>401; expiry is a stored timestamp</td></tr>
+        <tr><td>refuses after five failed attempts</td><td>Attempt cap reached; no further comparison</td></tr>
+        <tr><td>logs an officer in with a correct password</td><td>200 with a token and a role</td></tr>
+        <tr><td>refuses an unknown username with the identical body</td><td>Same status and body as a wrong password</td></tr>
+        <tr><td>refuses a wrong password</td><td>401</td></tr>
+        <tr><td>re-reads the session on every request</td><td>A revoked row fails on the next call</td></tr>
+        <tr><td>revokes a session on sign-out</td><td>Subsequent use returns 401</td></tr>
+        <tr><td>changes a password and refuses the old one</td><td>Old password fails after the change</td></tr>
+        <tr><td>refuses a password change without the current password</td><td>400</td></tr>
+    </table>
+
+    <h2>D.2 <code>remote-polling.test.ts</code> &mdash; 11 cases</h2>
+    <table class="tiny">
+        <tr><th style="width:44%;">Case</th><th>Assertion</th></tr>
+        <tr><td>creates a PENDING request</td><td>201; status PENDING; audit record written</td></tr>
+        <tr><td>refuses a centre inside the registered constituency</td><td>422 with the explanatory sentence</td></tr>
+        <tr><td>refuses a second active request</td><td>409 from the partial index</td></tr>
+        <tr><td>permits a new request after a rejection</td><td>201; the partial index ignores terminal rows</td></tr>
+        <tr><td>claims a pending request</td><td>UNDER_REVIEW with the reviewer recorded</td></tr>
+        <tr><td>releases a claimed request</td><td>PENDING with the reviewer cleared</td></tr>
+        <tr><td>approves and creates exactly one assignment</td><td>APPROVED; one assignment row</td></tr>
+        <tr><td>refuses rejection without a reason</td><td>400 from the schema</td></tr>
+        <tr><td>rejects with a reason and shows it to the voter</td><td>REJECTED; the note appears in the voter&rsquo;s read</td></tr>
+        <tr><td>withdraws an active request</td><td>WITHDRAWN; terminal</td></tr>
+        <tr><td>refuses PENDING &rarr; APPROVED</td><td>409 from the transition table</td></tr>
+    </table>
+
+    <h2>D.3 <code>ballots.test.ts</code> &mdash; 8 cases</h2>
+    <table class="tiny">
+        <tr><th style="width:44%;">Case</th><th>Assertion</th></tr>
+        <tr><td>serves the registered constituency when approved elsewhere</td><td><b>The Core Rule; every candidate belongs to the voter&rsquo;s own constituency</b></td></tr>
+        <tr><td>returns no choice in the submission response</td><td>Only <code>ballotReference</code> and <code>submittedAt</code></td></tr>
+        <tr><td>stores a sealed row with no voter column</td><td>Row shape verified</td></tr>
+        <tr><td>refuses a second submission</td><td>409; one row</td></tr>
+        <tr><td>refuses a candidate from another constituency</td><td>422</td></tr>
+        <tr><td>round-trips a sealed choice</td><td>Open returns the original identifier</td></tr>
+        <tr><td>fails verification after a ciphertext edit</td><td><code>verifyBallot</code> returns false</td></tr>
+        <tr><td>fails verification after an associated-data change</td><td>Transplanted ciphertext rejected</td></tr>
+    </table>
+
+    <h2>D.4 <code>constraints.test.ts</code> (6), <code>authorization.test.ts</code> (5), <code>elections.test.ts</code> (4)</h2>
+    <table class="tiny">
+        <tr><th style="width:44%;">Case</th><th>Assertion</th></tr>
+        <tr><td>unique voter-election status</td><td>Second insert raises P2002</td></tr>
+        <tr><td>partial index on active requests</td><td>Second PENDING raises P2002; a terminal row does not</td></tr>
+        <tr><td>one assignment per request</td><td>Second insert raises P2002</td></tr>
+        <tr><td>composite candidate foreign key</td><td>A candidate outside the election&rsquo;s constituencies is refused</td></tr>
+        <tr><td>registered constituency is not nullable</td><td>Insert without it is refused</td></tr>
+        <tr><td>audit record accepts an opaque reference</td><td>No foreign key is required</td></tr>
+        <tr><td>voter cannot claim, approve or reject</td><td>403 on each</td></tr>
+        <tr><td>officer roles are separated</td><td>PCO refused on VO-only routes</td></tr>
+        <tr><td>voter reads only their own record</td><td>404, not 403</td></tr>
+        <tr><td>missing token is refused</td><td>401 with the uniform body</td></tr>
+        <tr><td>revoked token is refused</td><td>401</td></tr>
+        <tr><td>election moves forward only</td><td>Repeat activation gives 409</td></tr>
+        <tr><td>closure expires open requests</td><td>Each becomes EXPIRED with a system audit record</td></tr>
+        <tr><td>reconciliation refused before closure</td><td>409</td></tr>
+        <tr><td>results refused before closure</td><td>409</td></tr>
+    </table>
+    <div class="page-number">{{PN}}</div>
+</div>

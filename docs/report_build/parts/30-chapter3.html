@@ -1,0 +1,465 @@
+<div class="page">
+    <!--TOC:chapter:CHAPTER 3: SYSTEM ANALYSIS-->
+    <h1 class="chapter-title">CHAPTER 3<br>SYSTEM ANALYSIS</h1>
+
+    <!--TOC:sub:3.1 Existing System Analysis-->
+    <h2>3.1 Existing System Analysis</h2>
+    <p>Before designing anything it is necessary to describe how the process works today, in the absence of the proposed system, and to describe it without caricature. The existing system for an absent voter in India is not an absence of process; it is a set of processes with different scopes, different eligibility tests and different degrees of automation. Vote Anywhere positions itself against three of them.</p>
+
+    <h3>3.1.1 Existing Process A &mdash; The Voter Travels</h3>
+    <p>The default answer for a voter who is away from their constituency is that they travel back. The process is entirely offline and entirely manual:</p>
+    <ol class="tight">
+        <li>The voter learns the poll date, usually from the press or a mobile application.</li>
+        <li>The voter arranges travel to the constituency in which they are enrolled.</li>
+        <li>The voter appears at their assigned polling station on the poll date with an approved identification document.</li>
+        <li>The presiding officer locates the voter&rsquo;s entry on the printed electoral roll, checks the identification, applies indelible ink to the finger and obtains a signature or thumb impression on the register.</li>
+        <li>The voter proceeds to the voting compartment and records the choice on the ballot unit or paper ballot.</li>
+        <li>The ballot is deposited in the ballot box; the voter leaves.</li>
+    </ol>
+    <p>This process is reliable, supervised and auditable, and it is the baseline the proposed system must not degrade. Its characteristic failure for the population in question is that steps 2 and 3 require a journey that may cost more than the voter can justify for a single vote: a day of wages, a night of travel, and a fare that may be a substantial fraction of a month&rsquo;s income. The result is not a formal refusal but a quiet abstention, which is why the scale of the problem is not visible in election statistics.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>3.1.2 Existing Process B &mdash; Postal Ballot for Eligible Categories</h3>
+    <p>For defined categories &mdash; service voters, electors subject to preventive detention, and electors on election duty &mdash; a postal ballot is available. The Electronically Transmitted Postal Ballot System transmits the ballot to the voter electronically and the voter returns it physically. The process runs as follows:</p>
+    <ol class="tight">
+        <li>The returning officer identifies the electors in the eligible categories from the roll.</li>
+        <li>A ballot, a declaration and a covering envelope are prepared for each such elector.</li>
+        <li>The material is transmitted, in the electronic variant by secure channel.</li>
+        <li>The voter marks the ballot, completes the declaration, seals the ballot in the covering envelope and places both in the outer envelope addressed to the returning officer.</li>
+        <li>The outer envelope is returned by post and received at the returning officer&rsquo;s centre, where the declaration is verified before the covering envelope is opened.</li>
+        <li>Postal ballots are counted at a designated centre.</li>
+    </ol>
+    <p>The design is careful. The covering envelope exists precisely so that the ballot can be separated from the declaration before counting, which is the procedural equivalent of the secrecy boundary. The characteristic failures are time and eligibility: the postal channel is slow, the return must arrive before the count, and the eligible categories are narrowly defined. A student who has moved cities for a degree is not a service voter and has no access to this route.</p>
+
+    <h3>3.1.3 Existing Process C &mdash; Informal Permission</h3>
+    <p>In practice a fourth process exists, unofficially. A voter who is known to a local official may obtain an informal accommodation: a message, a phone call, an understanding that they may present themselves at a nearby centre. This is not a legitimate process and no electoral authority sanctions it, but it is the observable behaviour that a formal system would replace.</p>
+    <p>Its weaknesses are total. There is no record of the permission, no verification of eligibility at the destination, no assurance that the correct ballot is served, no prevention of a second vote at the home centre, and no audit trail. It is mentioned here for a specific analytical reason: the existence of informal arrangements demonstrates demand. A workflow with these weaknesses is preferable to the status quo from the perspective of an administrator who wants accountability, which is the argument the proposed system makes.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>3.1.4 Characteristics of the Existing System</h3>
+    <p>The three processes can be characterised on seven dimensions. The characterisation is the basis for the requirements in Section 3.6.</p>
+    <!--TAB:3.1:Characteristics of the existing processes-->
+    <table class="compact">
+        <tr><th style="width:19%;">Dimension</th><th style="width:27%;">Process A: travel</th><th style="width:27%;">Process B: postal</th><th>Process C: informal</th></tr>
+        <tr><td>Eligibility test</td><td>None; the voter is already enrolled</td><td>Narrow statutory categories</td><td>None</td></tr>
+        <tr><td>Who authorises</td><td>Nobody; no authorisation needed</td><td>Returning officer, by category</td><td>An individual official, verbally</td></tr>
+        <tr><td>Where the ballot is marked</td><td>Assigned polling station</td><td>Wherever the voter is</td><td>A centre the voter is not assigned to</td></tr>
+        <tr><td>Supervision</td><td>Continuous</td><td>None after issue</td><td>Partial and unofficial</td></tr>
+        <tr><td>Record created</td><td>Form 17A entry and signature</td><td>Declaration and issue register</td><td>None</td></tr>
+        <tr><td>Duplicate prevention</td><td>Ink and register</td><td>Issue register; one ballot per elector</td><td>None</td></tr>
+        <tr><td>Accessible to a migrant student</td><td>Only at a personal cost that often exceeds the benefit</td><td>No</td><td>Only by personal acquaintance</td></tr>
+    </table>
+    <p class="table-caption">Table 3.1: Characteristics of the existing processes</p>
+    <p>Two rows carry most of the analytical weight. The <b>who authorises</b> row shows that the only process available to the migrant student is the one with no authorisation at all, which is why a formal authorisation workflow is the core of the proposed system. The <b>record created</b> row shows that the informal process produces no artefact, which is why an append-only audit trail is a primary requirement rather than a nicety.</p>
+
+    <h3>3.1.5 Where the Existing System Is Better</h3>
+    <p>An analysis that finds no merit in the status quo is not an analysis. The existing system is better than the proposed one in four respects, and each is a design constraint.</p>
+    <ul>
+        <li><b>Authentication is genuine.</b> A physical identity document checked by a trained officer against a printed roll is far stronger than a mock one-time code. The proposed system simulates this step and replaces it with an officer-verification step precisely because it cannot match it.</li>
+        <li><b>Ballot secrecy is statutory and physical.</b> The voting compartment and the ban on carrying a marked ballot out of it are enforced by law and by the architecture of the polling station. A digital equivalent has to be designed, and the design is necessarily weaker.</li>
+        <li><b>Counting is observable.</b> A counting agent can watch every ballot being counted. Aggregate results from a decryption routine are less observable, even when the routine is correct.</li>
+        <li><b>The audit trail is paper and public.</b> Form 17A is a physical document that can be inspected and challenged. A database table requires access to the database.</li>
+    </ul>
+    <p>These four points define the honesty requirement of this project. The proposed system does not claim to be more secure than a polling station. It claims to be better than the alternatives available to a specific class of voter, and it tries to make the digital equivalent of each of these four properties as strong as a small project can honestly make it.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:3.2 Limitations of Existing System-->
+    <h2>3.2 Limitations of Existing System</h2>
+    <p>The limitations are grouped by the party who experiences them, because the same defect can be trivial for one party and decisive for another.</p>
+
+    <h3>3.2.1 Limitations for the Voter</h3>
+    <p><b>L1 &mdash; Cost exceeds benefit.</b> The travel process is valid only if the voter can afford the journey. For a low-wage migrant worker, a return fare and a lost day&rsquo;s wages can exceed a week&rsquo;s income, which makes abstention economically rational. The system offers no alternative.</p>
+    <p><b>L2 &mdash; No route for the ordinary migrant.</b> Postal balloting is restricted by category. A student, a software professional on a project posting, or a patient receiving treatment in another city is outside every defined category and has no legitimate route at all.</p>
+    <p><b>L3 &mdash; No visibility of the process.</b> There is no way for a voter to know in advance whether they will be accepted at a centre, what documentation to bring, or what the outcome of any application is. The process is discovered by asking, and the answer depends on whom one asks.</p>
+    <p><b>L4 &mdash; No receipt.</b> After voting, a voter has no artefact other than the ink mark. This is a deliberate feature of the secret ballot, not a defect, but it leaves the voter with no way to demonstrate that a problem occurred.</p>
+
+    <h3>3.2.2 Limitations for the Administrator</h3>
+    <p><b>L5 &mdash; No instrument for the demand.</b> Because the affected voters simply do not appear, the administration has no data on how many voters are absent from their constituency during a poll. Planning is therefore based on estimates rather than measurements. A request workflow produces exactly this data as a side effect.</p>
+    <p><b>L6 &mdash; No authorisation record.</b> Any accommodation granted informally leaves no record, so it cannot be reviewed, counted, or defended if the result is challenged.</p>
+    <p><b>L7 &mdash; No reconciliation instrument.</b> There is no procedure that compares, for an absent-voter scheme, the number of ballots issued against the number recorded. The existing processes reconcile by physical custody: ballots are counted, and the count is checked against the issue register at one place. A distributed scheme needs a different instrument.</p>
+    <p><b>L8 &mdash; Duplicate risk is unmanaged.</b> A voter who is informally permitted to vote at another centre might also appear at their home centre. The ink mark is the only control and it is applied at the point of the second appearance, if at all.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>3.2.3 Limitations in the Technology Dimension</h3>
+    <p><b>L9 &mdash; Nothing to audit.</b> The most consequential limitation is not a defect in any process but the absence of a digital artefact. A database record with a timestamp and an actor can be queried, aggregated, exported and reviewed; a telephone call cannot. Any improvement in accountability requires that the administrative act leave a trace, and that requires software.</p>
+    <p><b>L10 &mdash; No separation of duties.</b> In an informal arrangement, the same person who decides that a voter may vote remotely is likely also the person who knows how that voter voted, because both happen in front of them. A designed workflow can separate these roles: one officer approves, a different officer verifies at the centre, and neither can see a choice.</p>
+    <p><b>L11 &mdash; No defined failure behaviour.</b> Every manual process fails in an undefined way. If the officer who granted the accommodation is unavailable, nothing happens. If the centre has no ballot for the voter&rsquo;s constituency, the voter is turned away. Software can specify the failure: an election that has closed refuses new requests with a stated reason rather than a shrug.</p>
+
+    <h3>3.2.4 Summary of Limitations and Their Remedies</h3>
+    <!--TAB:3.2:Limitations of the existing system and remedies in the proposed system-->
+    <table class="compact">
+        <tr><th style="width:7%;">ID</th><th style="width:33%;">Limitation</th><th style="width:29%;">Remedy in the proposed system</th><th>Section</th></tr>
+        <tr><td>L1</td><td>Cost of travel exceeds benefit</td><td>Remote polling request; the voter travels only to a nearby centre</td><td>6.5</td></tr>
+        <tr><td>L2</td><td>No route for the ordinary migrant</td><td>Any enrolled voter may apply, with a stated reason</td><td>6.5.2</td></tr>
+        <tr><td>L3</td><td>No visibility of process</td><td>Voter dashboard and status stepper showing the request state</td><td>6.9</td></tr>
+        <tr><td>L4</td><td>No receipt</td><td>Opaque ballot reference returned on submission</td><td>6.6.3</td></tr>
+        <tr><td>L5</td><td>Demand not measured</td><td>Every request persisted; administrator report by status</td><td>6.8</td></tr>
+        <tr><td>L6</td><td>No authorisation record</td><td>Assignment row plus an audit record per transition</td><td>6.5.4</td></tr>
+        <tr><td>L7</td><td>No reconciliation instrument</td><td>Per-constituency reconciliation after closure</td><td>6.7</td></tr>
+        <tr><td>L8</td><td>Duplicate risk unmanaged</td><td>Unique constraint on (voter, election)</td><td>6.6.4</td></tr>
+        <tr><td>L9</td><td>Nothing to audit</td><td>Append-only audit record for every state change</td><td>6.8</td></tr>
+        <tr><td>L10</td><td>No separation of duties</td><td>Five roles, each with an explicit permission set</td><td>6.3</td></tr>
+        <tr><td>L11</td><td>Undefined failure behaviour</td><td>Domain errors with stable codes and stated reasons</td><td>6.4</td></tr>
+    </table>
+    <p class="table-caption">Table 3.2: Limitations of the existing system and remedies in the proposed system</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:3.3 Proposed System-->
+    <h2>3.3 Proposed System</h2>
+    <p>The proposed system is a web application that implements the remote-centre model described in Section 2.2.5. It provides a request-and-approval workflow that produces an authorisation artefact, a controlled ballot that is generated from the voter&rsquo;s registered constituency, a submission path whose integrity can be verified, and a set of reports that close the administrative loop.</p>
+
+    <h3>3.3.1 System Description</h3>
+    <p>The system is a modular monolith. A React and TypeScript single-page application runs in the browser and communicates over HTTP with a single Express service written in TypeScript. The service is divided into nine domain modules &mdash; authentication, voters, elections, remote polling, ballots, the Election Simulator, officer support, administration and audit &mdash; and each module is further divided into a route layer, a service layer and a repository layer. Persistence is PostgreSQL 16, accessed through Prisma 6, with schema changes delivered as versioned SQL migrations. PostgreSQL runs in a Docker container during development; the two application processes run on the host.</p>
+    <p>The role model has five members. <b>Voters</b> authenticate with a mock one-time password and act only on their own records, identified from the session and never from a request parameter. <b>Verification Officers</b> review and decide remote polling requests. <b>Polling Centre Officers</b> verify arriving voters and control ballot issuance. <b>Election Administrators</b> configure and operate elections and read reports. <b>System Auditors</b> read the audit trail and the reconciliation report and may write nothing.</p>
+
+    <h3>3.3.2 The Workflow in Nine Steps</h3>
+    <ol class="tight">
+        <li><b>Authenticate.</b> The voter submits a voter number and receives a six-digit code through the development channel. The code is stored as a bcrypt hash with a five-minute expiry and a five-attempt cap.</li>
+        <li><b>Verify eligibility.</b> The voter runs an eligibility check that reports four conditions separately: the voter record is active, the election covers the registered constituency, the election is not closed, and no ballot has been submitted.</li>
+        <li><b>Submit a request.</b> The voter selects a polling centre outside their registered constituency and may give a reason. The request is created in the <code>PENDING</code> state.</li>
+        <li><b>Review.</b> A Verification Officer claims the request, which moves it to <code>UNDER_REVIEW</code> and records the reviewer.</li>
+        <li><b>Decide.</b> The officer approves, which creates the assignment in the same transaction, or rejects with a mandatory reason which is shown to the voter.</li>
+        <li><b>Verify at the centre.</b> A Polling Centre Officer looks up the voter number and sees the request, the assignment and whether the voter has already voted.</li>
+        <li><b>Cast the ballot.</b> The voter is shown the candidates of their registered constituency and submits one choice. The choice is sealed; an opaque reference is returned.</li>
+        <li><b>Reconcile.</b> After closure, the administrator and the auditor compare ballots issued against ballots recorded, per constituency.</li>
+        <li><b>Report.</b> Aggregate results per candidate per constituency become available to every authenticated role.</li>
+    </ol>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>3.3.3 Module Structure of the Proposed System</h3>
+    <p>Each backend module is a self-contained directory containing a router, a service, a repository and, where the endpoints accept input, a schema. The following table states the responsibility of each and the invariant it protects.</p>
+    <!--TAB:3.3:Module responsibilities-->
+    <table class="compact">
+        <tr><th style="width:17%;">Module</th><th style="width:38%;">Responsibility</th><th style="width:16%;">Primary roles</th><th>Invariant protected</th></tr>
+        <tr><td><code>auth</code></td><td>Officer password login, voter OTP issue and verification, session issue, read and revocation, password change</td><td>All</td><td>No failure response reveals whether an account exists</td></tr>
+        <tr><td><code>voters</code></td><td>Own profile and eligibility verification</td><td>Voter</td><td>Registered constituency is read-only through the API</td></tr>
+        <tr><td><code>elections</code></td><td>Election list, activation, closure; candidate and centre listings</td><td>Administrator</td><td>Lifecycle moves only forwards, and only once per step</td></tr>
+        <tr><td><code>remote-polling</code></td><td>Request submission and withdrawal, review queue, claim, release, approve, reject</td><td>Voter, Verification Officer, Polling Centre Officer</td><td>Only listed transitions occur; one active request per voter per election</td></tr>
+        <tr><td><code>ballots</code></td><td>Ballot generation from the registered constituency, sealing, submission, integrity verification</td><td>Voter</td><td>Constituency comes from the voter record only; one ballot per voter per election</td></tr>
+        <tr><td><code>simulator</code></td><td>Controlled ballot surface, post-closure reconciliation and aggregate results</td><td>Voter, Administrator, Auditor</td><td>Results exist only after closure and contain no voter data</td></tr>
+        <tr><td><code>officer</code></td><td>Role-aware dashboard aggregates and pre-vote voter verification</td><td>Officer roles</td><td>A dashboard reports only what the role may see</td></tr>
+        <tr><td><code>admin</code></td><td>Administrator aggregates and filterable request report</td><td>Administrator</td><td>Aggregates never include a candidate choice</td></tr>
+        <tr><td><code>audit</code></td><td>Audit record write path (service) and read endpoint (router)</td><td>System Auditor (read)</td><td>No write, update or delete route exists</td></tr>
+    </table>
+    <p class="table-caption">Table 3.3: Module responsibilities</p>
+
+    <h3>3.3.4 Technology Summary</h3>
+    <!--TAB:3.4:Technology summary of the proposed system-->
+    <table class="compact">
+        <tr><th style="width:22%;">Layer</th><th style="width:34%;">Technology</th><th>Why this choice</th></tr>
+        <tr><td>Presentation</td><td>React 19, TypeScript 5.7, Vite 6, Tailwind CSS 4, React Router 7, Axios, React Hook Form, Zod</td><td>Typed components; a single API client module; schema validation shared with the server&rsquo;s vocabulary</td></tr>
+        <tr><td>Application</td><td>Node.js 22, Express 4, TypeScript 5.7, Zod, helmet, cors, express-rate-limit</td><td>Same language on both sides; middleware chain expresses authentication and authorisation declaratively</td></tr>
+        <tr><td>Persistence</td><td>PostgreSQL 16, Prisma 6</td><td>Real constraints, partial indexes and transactions; a typed schema that documents the invariants</td></tr>
+        <tr><td>Cryptography</td><td><code>node:crypto</code> AES-256-GCM, bcrypt cost 12, <code>jsonwebtoken</code></td><td>Standard primitives from audited libraries; no hand-written construction</td></tr>
+        <tr><td>Infrastructure</td><td>Docker Compose with a named volume for PostgreSQL</td><td>Reproducible database without containerising the application layer at this stage</td></tr>
+        <tr><td>Testing</td><td>Jest 29, Supertest 7, a real PostgreSQL instance</td><td>The constraints are database features; an in-memory substitute would not test them</td></tr>
+    </table>
+    <p class="table-caption">Table 3.4: Technology summary of the proposed system</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>3.3.5 What the Proposed System Changes</h3>
+    <p>The proposed system does not change who may vote, when the poll is held, or how the result is declared. It changes the administrative path for one class of voter and the record that path leaves. Stated as a before-and-after:</p>
+    <!--TAB:3.5:Before and after comparison-->
+    <table class="compact">
+        <tr><th style="width:24%;">Aspect</th><th style="width:36%;">Before</th><th>After</th></tr>
+        <tr><td>Permission to vote away from home</td><td>Informal, verbal, unrecorded</td><td>A request, a decision, and an assignment, each with an audit record</td></tr>
+        <tr><td>Source of the ballot</td><td>Whatever the destination centre has</td><td>The voter&rsquo;s registered constituency, enforced by the service signature</td></tr>
+        <tr><td>Evidence that a voter voted</td><td>Ink mark at one station</td><td>A single row in a table with a unique constraint, plus an opaque ballot reference</td></tr>
+        <tr><td>Evidence of how a voter voted</td><td>Nothing recorded</td><td>Ciphertext, unlinked to the voter by any key</td></tr>
+        <tr><td>Reconciliation</td><td>Physical custody at one centre</td><td>Per-constituency counts compared after closure</td></tr>
+        <tr><td>Visibility for the voter</td><td>None</td><td>A dashboard, a status stepper and a rejection reason</td></tr>
+        <tr><td>Visibility for the auditor</td><td>Paper registers</td><td>An append-only audit trail readable through one endpoint</td></tr>
+    </table>
+    <p class="table-caption">Table 3.5: Before and after comparison</p>
+
+    <h3>3.3.6 System Boundaries</h3>
+    <!--FIG:3.1:System boundary of the proposed system-->
+    <figure class="figure-box">
+                 ┌──────────────────────────────────────────────────────────┐
+                 │                    VOTE ANYWHERE                         │
+                 │                                                          │
+   ┌──────────┐  │  ┌────────────┐   ┌──────────────┐   ┌────────────┐  │
+   │  Voter   │──┼─▶│   Voter    │   │  Remote      │   │  Ballot    │  │
+   │ (browser)│  │  │  Portal    │──▶│  Polling     │──▶│  Service   │  │
+   └──────────┘  │  └────────────┘   │  Workflow    │   └─────┬──────┘  │
+                 │                   └──────┬───────┘         │        │
+   ┌──────────┐  │  ┌────────────┐          │                 │        │
+   │ Officer  │──┼─▶│  Officer   │──────────┤                 │        │
+   │ (browser)│  │  │  Portal    │          │                 │        │
+   └──────────┘  │  └────────────┘          ▼                 ▼        │
+                 │                   ┌──────────────────────────────┐  │
+   ┌──────────┐  │  ┌────────────┐  │   PostgreSQL 16 · Prisma 6   │  │
+   │ Auditor  │──┼─▶│   Audit    │─▶│  identity side │ choice side │  │
+   └──────────┘  │  │  Trail     │  └──────────────────────────────┘  │
+                 │  └────────────┘                                    │
+                 └──────────────────────────────────────────────────────────┘
+      OUTSIDE THE BOUNDARY: electoral roll · Aadhaar · biometrics · SMS gateway
+                            government APIs · real election results
+    </figure>
+    <p class="figure-caption">Figure 3.1: System boundary of the proposed system</p>
+    <p>The boundary matters as much as the content. Everything outside it &mdash; the electoral roll, identity verification, message delivery and any real result &mdash; is either simulated or absent, and Chapter 8 treats the consequences of that absence as limitations rather than glossing over them.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:3.4 Advantages of Proposed System-->
+    <h2>3.4 Advantages of Proposed System</h2>
+    <p>Twelve advantages are claimed. Each is stated with the mechanism that produces it, so that the claim can be checked rather than accepted.</p>
+
+    <h3>3.4.1 Correctness Advantages</h3>
+    <p><b>A1 &mdash; The correct ballot is structurally guaranteed.</b> The ballot service accepts a complete voter record, so the constituency it uses cannot be supplied by a caller. The assignment record has no constituency column, so no approved permission can carry one. Even a request that forges a candidate identifier is rejected, because the candidate must stand in the voter&rsquo;s registered constituency for that election.</p>
+    <p><b>A2 &mdash; Duplicate voting is impossible, not merely unlikely.</b> The unique constraint on <code>(voterId, electionId)</code> is evaluated by the database inside the transaction. Two simultaneous submissions cannot both succeed; the second receives a conflict and the first remains the only record.</p>
+    <p><b>A3 &mdash; Request state cannot drift.</b> All transitions pass through one table. A rejected request cannot become approved; a used request cannot be reopened; a pending request cannot skip review. Each refusal is tested.</p>
+    <p><b>A4 &mdash; Approval and assignment cannot diverge.</b> Both writes occur inside one transaction, so an approved request always has exactly one assignment and no assignment exists without an approved request.</p>
+    <p><b>A5 &mdash; Ballot integrity is verifiable without disclosure.</b> Verification is a decryption attempt that returns a boolean. It is impossible for the verification path to return a choice, because its return type says so.</p>
+
+    <h3>3.4.2 Secrecy Advantages</h3>
+    <p><b>A6 &mdash; Voting records and vote records cannot be joined.</b> Two tables, no common key, no relation. The property is visible in the schema and asserted by a test.</p>
+    <p><b>A7 &mdash; The audit trail cannot become a leak.</b> The audit schema has five columns and no free-text payload. The ballot submission record names a system actor and an opaque reference. A test asserts that no code, password or key is ever written.</p>
+    <p><b>A8 &mdash; Results are aggregates by construction.</b> The results routine returns counts per candidate per constituency. There is no code path that emits a per-voter result, because the choice table could not support one.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>3.4.3 Operational Advantages</h3>
+    <p><b>A9 &mdash; Authorization is enforced server-side with deny-by-default semantics.</b> Each route names the roles permitted to reach it. A role that is added to the system later has access to nothing until it is explicitly named, and a hidden button is never the control.</p>
+    <p><b>A10 &mdash; Every state change is attributable.</b> Each transition writes an audit record naming the actor type, the actor, the action and a reference to the operation. Election closure writes system-actor records for each expiring request, so the batch operation is visible rather than silent.</p>
+    <p><b>A11 &mdash; Failure is defined and non-disclosing.</b> Every domain error carries a stable code and a human message. Authentication failures are uniform across unknown account, wrong credential, expired code and consumed challenge, and the failure path executes a bcrypt comparison against a dummy hash so that response timing does not disclose which case occurred.</p>
+    <p><b>A12 &mdash; The system is reproducible and inspectable.</b> One documented sequence of commands produces a running system with fictional data. The schema carries a comment on every model naming the invariant it protects, which means a reviewer can confirm the design in one file.</p>
+
+    <h3>3.4.4 Advantages Compared with the Alternatives</h3>
+    <!--TAB:3.6:Advantages compared with alternatives-->
+    <table class="compact">
+        <tr><th style="width:26%;">Property</th><th style="width:18%;">Status quo (informal)</th><th style="width:19%;">Postal ballot</th><th style="width:18%;">Blockchain proposal</th><th>This system</th></tr>
+        <tr><td>Correct ballot guaranteed</td><td>No</td><td>Yes</td><td>Untested</td><td>Yes, by signature</td></tr>
+        <tr><td>Secrecy survives the remote act</td><td>No</td><td>By envelope</td><td>Worse: permanent public record</td><td>Yes, by disjoint tables</td></tr>
+        <tr><td>Duplicate prevented</td><td>No</td><td>Issue register</td><td>Claimed</td><td>Yes, by constraint</td></tr>
+        <tr><td>Audit trail exists</td><td>No</td><td>Paper</td><td>Ledger, including choices</td><td>Yes, without choices</td></tr>
+        <tr><td>Reconciliation possible</td><td>No</td><td>Yes, physically</td><td>Not defined</td><td>Yes, per constituency</td></tr>
+        <tr><td>Works without national identity infrastructure</td><td>Only informally</td><td>Yes</td><td>Yes</td><td>Simulated only</td></tr>
+    </table>
+    <p class="table-caption">Table 3.6: Advantages compared with alternatives</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:3.5 Feasibility Study-->
+    <h2>3.5 Feasibility Study</h2>
+    <p>A feasibility study answers three questions: can it be built, can it be afforded, and will it be used. Each is treated separately because they fail for different reasons.</p>
+
+    <!--TOC:subsub:3.5.1 Technical Feasibility-->
+    <h3>3.5.1 Technical Feasibility</h3>
+    <p>The technical question is whether the required behaviour can be built with the technologies available to a single student within one semester. Five technical requirements were examined.</p>
+    <p><b>T1 &mdash; Can the invariant be enforced in the schema?</b> Yes. Relational databases support unique constraints, partial unique indexes and composite foreign keys, and the project uses all three. The one construct Prisma cannot express &mdash; a partial unique index &mdash; is written as raw SQL inside a migration, which is a documented and supported practice.</p>
+    <p><b>T2 &mdash; Can authenticated encryption be implemented without writing cryptography?</b> Yes. <code>node:crypto</code> provides AES-256-GCM. The project supplies a key, a fresh nonce and associated data, and delegates the rest. The total cryptographic code is approximately ninety lines including comments.</p>
+    <p><b>T3 &mdash; Can role-based authorization be enforced centrally?</b> Yes. Two small middleware functions, <code>requireRole</code> and <code>requireVoter</code>, are placed on each route. Because they are explicit allow-lists, the default for an unlisted role is refusal.</p>
+    <p><b>T4 &mdash; Can the invariants be tested?</b> Yes, and this was decisive. Supertest drives the real HTTP layer and Jest asserts on the responses, against a real PostgreSQL instance that enforces the constraints. An in-memory substitute would have made the constraint tests vacuous.</p>
+    <p><b>T5 &mdash; Is the required tooling available and free?</b> Yes. Every tool in the stack &mdash; Node.js, Express, Prisma, PostgreSQL, React, Vite, Tailwind, Jest, Docker &mdash; is open source and runs on an ordinary laptop.</p>
+    <p><b>Conclusion.</b> Technically feasible without qualification. The only genuine technical risk identified at the outset was the partial unique index, and it was resolved in the first migration by writing raw SQL. The remaining risk is not capability but time, which is addressed in Section 3.5.3.</p>
+    <!--TAB:3.7:Technical feasibility assessment-->
+    <table class="compact">
+        <tr><th style="width:8%;">Ref</th><th style="width:32%;">Requirement</th><th style="width:20%;">Verdict</th><th>Basis</th></tr>
+        <tr><td>T1</td><td>Invariants enforceable in the schema</td><td>Feasible</td><td>Unique constraints, partial index, composite FK</td></tr>
+        <tr><td>T2</td><td>Authenticated encryption without hand-written crypto</td><td>Feasible</td><td><code>node:crypto</code> AES-256-GCM</td></tr>
+        <tr><td>T3</td><td>Central role enforcement</td><td>Feasible</td><td>Two allow-list middleware functions</td></tr>
+        <tr><td>T4</td><td>Invariants testable</td><td>Feasible</td><td>Jest and Supertest against real PostgreSQL</td></tr>
+        <tr><td>T5</td><td>Tooling available at zero cost</td><td>Feasible</td><td>Entire stack is open source</td></tr>
+    </table>
+    <p class="table-caption">Table 3.7: Technical feasibility assessment</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:subsub:3.5.2 Economic Feasibility-->
+    <h3>3.5.2 Economic Feasibility</h3>
+    <p>Because the system is an academic prototype, the economic question is not whether it would be profitable but whether it can be built and demonstrated at negligible cost, and what it would cost if the design were taken forward by a real authority. Both are addressed.</p>
+    <p><b>Development cost as incurred.</b> The total cash cost of building the system was nil. Every tool is open source: Node.js, PostgreSQL, Prisma, Express, React, Vite, Tailwind CSS, Jest and Docker are all free of licence charge. Development used an existing laptop, an existing internet connection and free code-editing software. The costs actually incurred were therefore time and electricity, not money.</p>
+    <!--TAB:3.8:Development cost estimate-->
+    <table class="compact">
+        <tr><th style="width:30%;">Item</th><th style="width:22%;">Basis</th><th style="width:20%;">Cost incurred</th><th>Note</th></tr>
+        <tr><td>Editor and tooling</td><td>Open-source editor</td><td>Nil</td><td>VS Code and equivalents</td></tr>
+        <tr><td>Runtime and database</td><td>Open source</td><td>Nil</td><td>Node.js, PostgreSQL</td></tr>
+        <tr><td>Libraries</td><td>npm registry</td><td>Nil</td><td>All licences permissive</td></tr>
+        <tr><td>Container runtime</td><td>Docker Desktop, free tier</td><td>Nil</td><td>One container</td></tr>
+        <tr><td>Hosting during development</td><td>Local machine</td><td>Nil</td><td>No cloud resources</td></tr>
+        <tr><td>Developer time</td><td>One student, one semester</td><td>Time only</td><td>Approximately sixteen weeks</td></tr>
+        <tr><td><b>Total cash cost</b></td><td></td><td><b>Nil</b></td><td></td></tr>
+    </table>
+    <p class="table-caption">Table 3.8: Development cost estimate</p>
+    <p><b>Cost of a production-style deployment.</b> The design would run on a single small virtual machine &mdash; two virtual CPUs and four gigabytes of memory would be ample for a pilot restricted to one district &mdash; together with managed PostgreSQL. At commodity cloud prices this is a modest monthly figure, dominated by the managed database rather than by compute. The significant costs in a real deployment would not be infrastructure at all: they would be the independent security audit, the legal framework, the officer training and the public communication that any electoral innovation requires. This project addresses none of those, and Section 8.4 records them as prerequisites rather than as future features.</p>
+    <p><b>Cost avoided.</b> There is an economic argument on the other side. Every voter who does not vote because of distance is a citizen whose preference is not counted, and the loss is not measurable in money. It is nonetheless worth recording that the operating cost of a request-and-approval workflow per voter is trivially small &mdash; one record, one review, one ballot &mdash; compared with the cost of administering a postal ballot per elector, which involves printing, dispatch, return postage, receipt handling and manual verification.</p>
+    <p><b>Conclusion.</b> Economically feasible. The project was built at zero cash cost, and the design would scale to a pilot without infrastructure expenditure that would trouble a district administration. The claim is limited to infrastructure: the non-infrastructure costs of a real deployment are substantial and are outside this project&rsquo;s scope.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:subsub:3.5.3 Operational Feasibility-->
+    <h3>3.5.3 Operational Feasibility</h3>
+    <p>Operational feasibility asks whether the people who would use the system can and will use it. Four groups were considered.</p>
+    <p><b>Voters.</b> The voter journey requires three interactions: entering a voter number to receive a code, choosing a centre from a list, and selecting a candidate. Each is a single screen, and the interface uses a stepper that shows the voter where the request stands. The principal operational risk is the one-time code: any real deployment would need a delivery channel, and the mock channel used here is not one. This is the largest operational gap in the project and is stated as such.</p>
+    <p><b>Verification Officers.</b> The review queue is a filtered list with a status badge and a detail panel. The officer&rsquo;s task is to read the voter&rsquo;s reason and decide. The system does not present eligibility evidence beyond the voter record, so a real deployment would need an evidence panel. The operational burden is low: a decision is two clicks in the common case.</p>
+    <p><b>Polling Centre Officers.</b> The verification screen takes a voter number and returns the voter&rsquo;s record, request status, assignment and whether they have already voted. This is the digital analogue of the Form 17A check and fits the existing workflow of a presiding officer rather than replacing it.</p>
+    <p><b>Administrators and auditors.</b> Both roles are read-mostly. The administrator activates and closes elections and reads reports; the auditor reads the trail. Neither requires training beyond a walkthrough.</p>
+    <p><b>Organisational feasibility.</b> The deeper operational question is political rather than technical: any change to how votes are cast requires consensus among political parties, and the Indian Remote Voting Machine prototype is explicitly waiting on that consensus. A student project cannot create that consensus, and the report does not pretend otherwise. What a project can do is demonstrate that the technical objections &mdash; constituency corruption and secrecy loss &mdash; have technical answers, and thereby narrow the argument to the political question where it belongs.</p>
+    <!--TAB:3.9:Operational feasibility by user group-->
+    <table class="compact">
+        <tr><th style="width:22%;">Group</th><th style="width:26%;">Effort to learn</th><th style="width:26%;">Main operational risk</th><th>Mitigation in this project</th></tr>
+        <tr><td>Voter</td><td>Low</td><td>One-time code delivery channel</td><td>Documented as simulated; production channel is future work</td></tr>
+        <tr><td>Verification Officer</td><td>Low</td><td>Decision without evidence</td><td>Reason field and audit record make the decision attributable</td></tr>
+        <tr><td>Polling Centre Officer</td><td>Low</td><td>Reliance on the digital check alone</td><td>Screen mirrors the existing register check rather than replacing it</td></tr>
+        <tr><td>Administrator</td><td>Low</td><td>Closing an election prematurely</td><td>Transition guard and an audit record per closure</td></tr>
+        <tr><td>System Auditor</td><td>Very low</td><td>None identified</td><td>Read-only by construction</td></tr>
+    </table>
+    <p class="table-caption">Table 3.9: Operational feasibility by user group</p>
+    <p><b>Conclusion.</b> Operationally feasible as a demonstration and as a pilot design, with one material qualification: the identity and code-delivery channels are simulated, so the system demonstrates the workflow rather than the identity regime that a real deployment would require.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:3.6 Software Requirement Specification-->
+    <h2>3.6 Software Requirement Specification</h2>
+    <p>The requirements are numbered so that Chapter 7 and Appendix C can trace tests back to them. Functional requirements use the prefix FR, non-functional NFR, and business rules BR.</p>
+
+    <h3>3.6.1 Functional Requirements</h3>
+    <!--TAB:3.10:Functional requirements-->
+    <table class="tiny">
+        <tr><th style="width:7%;">ID</th><th style="width:56%;">Requirement</th><th style="width:12%;">Priority</th><th>Verified by</th></tr>
+        <tr><td>FR-01</td><td>The system shall authenticate an officer with a username and password and return a session token.</td><td>Must</td><td>TC-01</td></tr>
+        <tr><td>FR-02</td><td>The system shall return an identical status and body for an unknown username and a wrong password.</td><td>Must</td><td>TC-02</td></tr>
+        <tr><td>FR-03</td><td>The system shall issue a six-digit one-time code for a valid voter number, store only its hash, and expire it after five minutes.</td><td>Must</td><td>TC-04</td></tr>
+        <tr><td>FR-04</td><td>The system shall accept a one-time code exactly once and issue a session in the same transaction.</td><td>Must</td><td>TC-06</td></tr>
+        <tr><td>FR-05</td><td>The system shall refuse the sixth verification attempt even if the correct code is supplied.</td><td>Must</td><td>TC-08</td></tr>
+        <tr><td>FR-06</td><td>The system shall revoke all other sessions of an officer when that officer changes their password.</td><td>Must</td><td>TC-11</td></tr>
+        <tr><td>FR-07</td><td>The system shall reject a request carrying a revoked or expired session immediately.</td><td>Must</td><td>TC-13</td></tr>
+        <tr><td>FR-08</td><td>The system shall return the calling voter&rsquo;s profile, including registered constituency, and shall provide no route that changes it.</td><td>Must</td><td>TC-21</td></tr>
+        <tr><td>FR-09</td><td>The system shall report eligibility as four separate checks with an overall verdict.</td><td>Must</td><td>TC-20</td></tr>
+        <tr><td>FR-10</td><td>The system shall accept a remote polling request naming a centre outside the voter&rsquo;s registered constituency.</td><td>Must</td><td>TC-15</td></tr>
+        <tr><td>FR-11</td><td>The system shall refuse a request naming a centre inside the voter&rsquo;s registered constituency.</td><td>Must</td><td>TC-17</td></tr>
+        <tr><td>FR-12</td><td>The system shall permit at most one active request per voter per election.</td><td>Must</td><td>TC-16</td></tr>
+        <tr><td>FR-13</td><td>The system shall allow a voter to withdraw their own active request.</td><td>Must</td><td>TC-24</td></tr>
+        <tr><td>FR-14</td><td>The system shall allow a Verification Officer to claim, release, approve and reject requests, and no other role.</td><td>Must</td><td>TC-23</td></tr>
+        <tr><td>FR-15</td><td>The system shall require a non-empty reason when rejecting a request and shall show it to the voter.</td><td>Must</td><td>TC-22</td></tr>
+        <tr><td>FR-16</td><td>The system shall create exactly one assignment when a request is approved, in the same transaction.</td><td>Must</td><td>TC-19</td></tr>
+        <tr><td>FR-17</td><td>The system shall refuse every transition not present in the transition table.</td><td>Must</td><td>TC-18, TC-25</td></tr>
+        <tr><td>FR-18</td><td>The system shall generate a ballot from the voter&rsquo;s registered constituency and no other input.</td><td>Must</td><td>TC-26</td></tr>
+        <tr><td>FR-19</td><td>The system shall refuse a candidate who does not stand in the voter&rsquo;s registered constituency.</td><td>Must</td><td>TC-30</td></tr>
+        <tr><td>FR-20</td><td>The system shall seal a submitted choice with AES-256-GCM and return only an opaque reference.</td><td>Must</td><td>TC-28</td></tr>
+        <tr><td>FR-21</td><td>The system shall reject a second ballot submission by the same voter for the same election, including concurrent submissions.</td><td>Must</td><td>TC-29</td></tr>
+        <tr><td>FR-22</td><td>The system shall mark the approved request USED inside the ballot submission transaction.</td><td>Must</td><td>TC-31</td></tr>
+        <tr><td>FR-23</td><td>The system shall activate an election only from CONFIGURED and close it only from ACTIVE.</td><td>Must</td><td>TC-33</td></tr>
+        <tr><td>FR-24</td><td>The system shall expire all open requests when an election is closed, recording each as a system transition.</td><td>Must</td><td>TC-34</td></tr>
+        <tr><td>FR-25</td><td>The system shall produce per-constituency reconciliation only after closure.</td><td>Must</td><td>TC-35</td></tr>
+        <tr><td>FR-26</td><td>The system shall produce aggregate results per candidate per constituency only after closure.</td><td>Must</td><td>TC-36</td></tr>
+        <tr><td>FR-27</td><td>The system shall write an audit record for every state change, and shall expose no write route for audit records.</td><td>Must</td><td>TC-38</td></tr>
+        <tr><td>FR-28</td><td>The system shall restrict the audit read endpoint to the System Auditor.</td><td>Must</td><td>TC-39</td></tr>
+        <tr><td>FR-29</td><td>The system shall present a role-appropriate dashboard for each officer role.</td><td>Should</td><td>TC-40</td></tr>
+        <tr><td>FR-30</td><td>The system shall provide pre-vote verification by voter number to Verification and Polling Centre Officers.</td><td>Should</td><td>TC-41</td></tr>
+        <tr><td>FR-31</td><td>The system shall provide an administrator dashboard and a filterable request report.</td><td>Should</td><td>TC-42</td></tr>
+    </table>
+    <p class="table-caption">Table 3.10: Functional requirements</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>3.6.2 Non-Functional Requirements</h3>
+    <!--TAB:3.11:Non-functional requirements-->
+    <table class="compact">
+        <tr><th style="width:9%;">ID</th><th style="width:17%;">Category</th><th style="width:44%;">Requirement</th><th>How it is met</th></tr>
+        <tr><td>NFR-01</td><td>Security</td><td>No stored credential may be recoverable in plaintext.</td><td>bcrypt cost 12 for officer passwords and for one-time codes</td></tr>
+        <tr><td>NFR-02</td><td>Security</td><td>No failure response may disclose whether an account exists.</td><td>Uniform status and body; dummy-hash comparison on the failure path</td></tr>
+        <tr><td>NFR-03</td><td>Security</td><td>Authorization shall be enforced on the server for every route.</td><td>Explicit allow-list middleware on each route</td></tr>
+        <tr><td>NFR-04</td><td>Security</td><td>Revocation shall take effect immediately.</td><td>Every request re-checks the server-side session row</td></tr>
+        <tr><td>NFR-05</td><td>Security</td><td>No error response shall contain a stack trace, ORM error or constraint name.</td><td>Single error handler; domain errors carry a safe message</td></tr>
+        <tr><td>NFR-06</td><td>Privacy</td><td>No table, response, log or audit record shall contain both a voter identity and a candidate choice.</td><td>Disjoint tables; system actor for ballot submission</td></tr>
+        <tr><td>NFR-07</td><td>Integrity</td><td>A stored ballot must be tamper-evident.</td><td>AES-256-GCM authentication tag bound to context</td></tr>
+        <tr><td>NFR-08</td><td>Integrity</td><td>Invariants must hold under concurrent requests.</td><td>Database constraints and transactions, not application checks</td></tr>
+        <tr><td>NFR-09</td><td>Availability</td><td>The health endpoint shall report database connectivity.</td><td><code>GET /api/health</code> executes a trivial query</td></tr>
+        <tr><td>NFR-10</td><td>Performance</td><td>A dashboard read shall complete within 500 ms on a developer machine.</td><td>Indexed lookups; a single aggregate query per figure (Section 7.6)</td></tr>
+        <tr><td>NFR-11</td><td>Usability</td><td>Each portal shall show only navigation appropriate to the signed-in role.</td><td>Role-derived navigation, guarded routes</td></tr>
+        <tr><td>NFR-12</td><td>Usability</td><td>A rejection reason shall be visible to the voter.</td><td>Returned in the request shape and rendered on the status page</td></tr>
+        <tr><td>NFR-13</td><td>Maintainability</td><td>No database access outside a repository module.</td><td>Layering convention, visible in every module</td></tr>
+        <tr><td>NFR-14</td><td>Maintainability</td><td>Every model shall document the invariant it protects.</td><td>Doc comments in <code>schema.prisma</code></td></tr>
+        <tr><td>NFR-15</td><td>Portability</td><td>The system shall run on Linux, macOS and Windows.</td><td>Node.js and PostgreSQL only; Docker for the database</td></tr>
+        <tr><td>NFR-16</td><td>Testability</td><td>Invariants shall be tested against a real database.</td><td>Jest and Supertest with a real PostgreSQL instance</td></tr>
+        <tr><td>NFR-17</td><td>Recoverability</td><td>Schema changes shall be applied by versioned migration only.</td><td>Two migrations; <code>db push</code> is not used</td></tr>
+        <tr><td>NFR-18</td><td>Observability</td><td>Audit write failures shall be logged without failing the original operation.</td><td>Audit service catches and logs</td></tr>
+        <tr><td>NFR-19</td><td>Configurability</td><td>Secrets shall come from the environment and shall be validated.</td><td>Zod schema for environment variables</td></tr>
+        <tr><td>NFR-20</td><td>Documentation</td><td>The REST surface and data model shall be documented.</td><td>Appendix B and Appendix A</td></tr>
+    </table>
+    <p class="table-caption">Table 3.11: Non-functional requirements</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>3.6.3 Business Rules</h3>
+    <p>Business rules are constraints on the domain that hold regardless of which user is acting. They are distinguished from functional requirements because they must be enforced even if a future requirement changes the interface.</p>
+    <!--TAB:3.12:Business rules-->
+    <table class="compact">
+        <tr><th style="width:8%;">ID</th><th style="width:58%;">Rule</th><th>Enforced in</th></tr>
+        <tr><td>BR-01</td><td>A remote polling centre changes where a voter votes and never changes the registered constituency or the ballot received.</td><td>Service signature; absence of a constituency column on the assignment</td></tr>
+        <tr><td>BR-02</td><td>A voter may hold at most one active remote polling request per election.</td><td>Partial unique index</td></tr>
+        <tr><td>BR-03</td><td>A voter may submit at most one ballot per election.</td><td>Unique constraint, enforced in a transaction</td></tr>
+        <tr><td>BR-04</td><td>An approved request has exactly one assignment; no other state has one.</td><td>Approval transaction; unique constraint on the request</td></tr>
+        <tr><td>BR-05</td><td>A rejected request has a non-empty reason.</td><td>Validation schema and a service guard</td></tr>
+        <tr><td>BR-06</td><td>Requests may be submitted only while the election is CONFIGURED.</td><td>Service guard on the lifecycle value</td></tr>
+        <tr><td>BR-07</td><td>Ballots may be generated and submitted only while the election is ACTIVE.</td><td>Service guard</td></tr>
+        <tr><td>BR-08</td><td>Reconciliation and results are available only after closure.</td><td>Service guard</td></tr>
+        <tr><td>BR-09</td><td>A candidate on a ballot must stand in the voter&rsquo;s registered constituency in that election.</td><td>Scoped candidate lookup before sealing</td></tr>
+        <tr><td>BR-10</td><td>System transitions (EXPIRED, USED) are recorded with a system actor and never attributed to a person.</td><td>Audit call sites</td></tr>
+        <tr><td>BR-11</td><td>No transition writes to a voter&rsquo;s registered constituency.</td><td>No such write exists in any repository</td></tr>
+        <tr><td>BR-12</td><td>A voter acts only on their own records, identified from the session.</td><td>Ownership read from <code>req.auth</code>, never from input</td></tr>
+    </table>
+    <p class="table-caption">Table 3.12: Business rules</p>
+
+    <h3>3.6.4 Use Case Descriptions</h3>
+    <p>Four use cases carry the system&rsquo;s substance. Each is described in the standard form rather than only drawn.</p>
+    <p><b>UC-01 &mdash; Submit a remote polling request.</b> <i>Actor:</i> Voter. <i>Precondition:</i> the voter holds a valid session; an election exists and is CONFIGURED. <i>Trigger:</i> the voter selects a centre and submits. <i>Main flow:</i> the system loads the voter record; loads the election and checks the lifecycle; loads the centre and checks that it belongs to a different constituency; creates the request in PENDING; writes an audit record; returns the request. <i>Alternate flows:</i> A1 the election is not CONFIGURED &mdash; 409 with a stated reason; A2 the centre is in the voter&rsquo;s own constituency &mdash; 422 with an explanatory message; A3 an active request already exists &mdash; 409, raised by the partial unique index. <i>Postcondition:</i> exactly one PENDING request exists, and one audit record.</p>
+    <p><b>UC-02 &mdash; Approve a request.</b> <i>Actor:</i> Verification Officer. <i>Precondition:</i> the request is UNDER_REVIEW and the officer claimed it. <i>Main flow:</i> check the transition is legal; check the election is not closed; check the voter has not already voted; in one transaction set APPROVED, record the reviewer and create the assignment; write an audit record; return the status and the assignment identifier. <i>Alternate flows:</i> B1 the request is not UNDER_REVIEW &mdash; 409 naming the illegal move; B2 the election is closed &mdash; 409; B3 the voter has voted &mdash; 409. <i>Postcondition:</i> status APPROVED, exactly one assignment, one audit record.</p>
+    <p><b>UC-03 &mdash; Submit a controlled ballot.</b> <i>Actor:</i> Voter. <i>Precondition:</i> the election is ACTIVE; the voter has not voted. <i>Main flow:</i> verify the candidate stands in the voter&rsquo;s registered constituency; generate an opaque reference; seal the choice with a fresh nonce and context-bound associated data; in one transaction insert the identity-side row, insert the choice-side row and mark any approved request USED; write a system-actor audit record; return the reference and time. <i>Alternate flows:</i> C1 the candidate is not on the ballot &mdash; 422; C2 a row already exists &mdash; 409 from the unique constraint. <i>Postcondition:</i> two disjoint rows and one audit record.</p>
+    <p><b>UC-04 &mdash; Reconcile after closure.</b> <i>Actor:</i> Election Administrator or System Auditor. <i>Precondition:</i> the election is CLOSED. <i>Main flow:</i> count issued statuses grouped by the voter&rsquo;s registered constituency; count recorded ballots grouped by the ballot&rsquo;s constituency; compare per constituency and report the difference. <i>Postcondition:</i> a report of counts, with no per-voter information.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>3.6.5 Requirement Prioritisation</h3>
+    <p>Requirements were prioritised using MoSCoW so that the essential could be completed before the desirable was attempted. The distribution records a deliberate allocation of effort toward the invariants.</p>
+    <!--TAB:3.13:Requirement prioritisation-->
+    <table class="compact">
+        <tr><th style="width:14%;">Priority</th><th style="width:10%;">Count</th><th style="width:40%;">Representative items</th><th>Status at submission</th></tr>
+        <tr><td>Must</td><td>28</td><td>Authentication, session revocation, request workflow, transition table, Core Rule, duplicate rejection, encryption, audit, closure behaviour</td><td>All implemented and tested</td></tr>
+        <tr><td>Should</td><td>3</td><td>Role-aware dashboards, pre-vote verification, administrator reports</td><td>All implemented</td></tr>
+        <tr><td>Could</td><td>4</td><td>Candidate and centre administration through the interface, richer charts, export of reports</td><td>Not implemented; recorded in Section 8.4</td></tr>
+        <tr><td>Won&rsquo;t (this release)</td><td>6</td><td>Real identity integration, real code delivery, end-to-end verifiability, multi-tenant operation, mobile application, accessibility audit</td><td>Excluded by decision (Section 1.4.3)</td></tr>
+    </table>
+    <p class="table-caption">Table 3.13: Requirement prioritisation</p>
+
+    <h3>3.6.6 Requirement Traceability</h3>
+    <p>Every Must requirement is traceable to a design element, an implementation location and a test. The full matrix appears in Appendix C; the summary is given here because it demonstrates that the requirements are not aspirational.</p>
+    <!--TAB:3.14:Requirement traceability summary-->
+    <table class="compact">
+        <tr><th style="width:32%;">Stage</th><th style="width:16%;">Artefact</th><th>Coverage</th></tr>
+        <tr><td>Requirement</td><td>Section 3.6</td><td>31 functional, 20 non-functional, 12 business rules</td></tr>
+        <tr><td>Design</td><td>Chapter 4</td><td>Every functional requirement maps to a component in Figure 4.2 or a transition in Figure 4.9</td></tr>
+        <tr><td>Implementation</td><td>Chapter 6</td><td>Every module in Table 3.3 has a section describing its implementation</td></tr>
+        <tr><td>Test</td><td>Chapter 7 and Appendix C</td><td>42 test cases; every Must requirement has at least one</td></tr>
+    </table>
+    <p class="table-caption">Table 3.14: Requirement traceability summary</p>
+
+    <h3>3.6.7 Analysis Conclusion</h3>
+    <p>The analysis identifies eleven limitations in the existing processes, of which four are structural: there is no route for the ordinary migrant, no authorisation record, no reconciliation instrument, and no artefact to audit. The proposed system addresses each of them with a specific mechanism, and the feasibility studies find the work technically achievable, economically trivial and operationally plausible as a demonstration. The one qualification that recurs across all three studies is the simulation of identity and message delivery, and that qualification is carried forward into Chapter 8 rather than being quietly dropped.</p>
+    <div class="page-number">{{PN}}</div>
+</div>

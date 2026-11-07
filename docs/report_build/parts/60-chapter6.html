@@ -1,0 +1,549 @@
+<div class="page">
+    <!--TOC:chapter:CHAPTER 6: IMPLEMENTATION-->
+    <h1 class="chapter-title">CHAPTER 6<br>IMPLEMENTATION</h1>
+
+    <!--TOC:sub:6.1 Module Description-->
+    <h2>6.1 Module Description</h2>
+    <p>The application is nine modules in one process. Each module is a directory with a router, a service and a repository, plus a schema where input arrives. The table below states what each module owns and what it must not do.</p>
+
+    <!--TAB:6.1:Module responsibilities-->
+    <table class="compact">
+        <tr><th style="width:16%;">Module</th><th style="width:36%;">Responsibility</th><th>Explicitly not its job</th></tr>
+        <tr><td><code>auth</code></td><td>Voter OTP issue and verify, officer login, session read and revoke, password change</td><td>Deciding whether a voter is eligible to vote</td></tr>
+        <tr><td><code>voters</code></td><td>Own profile, eligibility check computed from the registered constituency</td><td>Issuing tokens; reading ballots</td></tr>
+        <tr><td><code>elections</code></td><td>Election list, lifecycle transitions, expiry of open requests on closure</td><td>Counting votes</td></tr>
+        <tr><td><code>remote-polling</code></td><td>Submit, read, withdraw, claim, release, approve, reject; assignment creation</td><td>Generating a ballot</td></tr>
+        <tr><td><code>ballots</code></td><td>Generate the controlled ballot, seal a choice, write both sides of the transaction</td><td>Deciding eligibility or approval</td></tr>
+        <tr><td><code>simulator</code></td><td>Reconciliation counts, and results after closure</td><td>Running during an open poll</td></tr>
+        <tr><td><code>officer</code></td><td>Role-aware dashboard, verification lookup at a centre</td><td>Changing any record</td></tr>
+        <tr><td><code>admin</code></td><td>Aggregate reports over elections, voters, centres, ballots and requests</td><td>Exposing individual ballots</td></tr>
+        <tr><td><code>audit</code></td><td>Write a record for every state change; read records with filters</td><td>Throwing into the calling transaction</td></tr>
+    </table>
+    <p class="table-caption">Table 6.1: Module responsibilities</p>
+
+    <h3>6.1.1 The Boundary Between <code>remote-polling</code> and <code>ballots</code></h3>
+    <p>These two modules carry the design. <code>remote-polling</code> answers <i>may this voter vote somewhere else</i>. <code>ballots</code> answers <i>what may this voter choose</i>. The separation is not organisational tidiness; it is the reason the Core Rule holds. If ballot generation lived in the remote polling module, it would be natural to pass the request&rsquo;s centre into it, and from the centre a constituency could be derived. Because the ballot module receives only a voter identifier, that path does not exist.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:6.2 Algorithms-->
+    <h2>6.2 Algorithms</h2>
+    <p>Four algorithms carry the guarantees. Each is stated as a procedure with its invariants, followed by its complexity.</p>
+
+    <h3>6.2.1 Controlled Ballot Generation</h3>
+    <p><b>Purpose.</b> Return the candidates a voter may choose, drawn only from the voter&rsquo;s registered constituency, together with the election context and, if one exists, the approved remote assignment.</p>
+    <pre class="code-block">GENERATE-BALLOT(voterId)
+ 1  voter ← find voter by id, including registeredConstituency and homePollingCentre
+ 2  if voter = ∅ then error NOT_FOUND
+ 3  election ← the single election whose lifecycle ≠ CLOSED
+ 4  if election = ∅ then error NO_ACTIVE_ELECTION
+ 5  if election.lifecycle ≠ ACTIVE then error ELECTION_NOT_ACTIVE
+ 6  if VoterElectionStatus(voterId, election.id).hasVoted then error ALREADY_VOTED
+ 7  constituency ← voter.registeredConstituencyId        ▷ the ONLY source
+ 8  candidates ← Candidate where electionId = election.id
+ 9                              and constituencyId = constituency
+10  assignment ← RemotePollingAssignment(voterId, election.id) or ∅
+11  return { election, constituency, candidates, assignment }
+
+ Invariant: the value bound at line 7 is taken from the voter row and from
+ no other relation. There is no parameter by which a caller could supply a
+ different constituency, and the assignment read at line 10 is used only to
+ display a centre name — never to derive a ballot.</pre>
+    <p><b>Complexity.</b> Four indexed lookups and one join, all on primary or unique keys; O(log n) per lookup, dominated by network round trips rather than by the database.</p>
+
+    <h3>6.2.2 Sealing a Choice</h3>
+    <p><b>Purpose.</b> Convert a candidate choice into three fields that cannot be read without the key, and that cannot be transplanted from one ballot to another.</p>
+    <pre class="code-block">SEAL-CHOICE(choice, ballotReference, electionId, constituencyId)
+ 1  key   ← decode BALLOT_ENCRYPTION_KEY (64 hex → 32 bytes)
+ 2  nonce ← crypto.randomBytes(12)                 ▷ fresh, never reused
+ 3  aad   ← "ballotReference|electionId|constituencyId"
+ 4  cipher ← createCipheriv("aes-256-gcm", key, nonce)
+ 5  cipher.setAAD(utf8(aad))
+ 6  ciphertext ← cipher.update(utf8(choice)) ‖ cipher.final()
+ 7  tag ← cipher.getAuthTag()
+ 8  return { nonce, ciphertext, tag }
+
+ Rationale for the associated data: a ciphertext lifted from ballot A and
+ written onto ballot B would decrypt successfully if only the choice were
+ authenticated. Binding the reference, election and constituency makes a
+ transplanted ciphertext fail authentication at line 7 of OPEN-BALLOT.</pre>
+    <p><b>Open versus verify.</b> Two functions read a sealed ballot. <code>verifyBallotIntegrity()</code> returns a boolean and never returns plaintext; it is the only function available to any path that is not counting. <code>openBallotForCounting()</code> returns the plaintext and is called from one place, <code>simulatorService.results</code>, after the lifecycle check. The type system enforces the separation because the two functions have different return types and neither is exported from the ballot module&rsquo;s public surface except to the simulator.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>6.2.3 Ballot Submission Under Concurrency</h3>
+    <p><b>Purpose.</b> Accept at most one ballot per voter per election, even when two requests arrive in the same millisecond, and leave the identity side and the choice side consistent.</p>
+    <pre class="code-block">SUBMIT-BALLOT(voterId, candidateId)
+ 1  election ← active election; if none or CLOSED → error
+ 2  status   ← VoterElectionStatus(voterId, election.id)
+ 3  if status ≠ ∅ and status.hasVoted → error ALREADY_VOTED      ▷ fast path
+ 4  voter    ← voter with registeredConstituency
+ 5  candidate ← candidate where id = candidateId
+ 6  if candidate = ∅ or candidate.constituencyId ≠ voter.registeredConstituencyId
+ 7      or candidate.electionId ≠ election.id → error INVALID_CHOICE
+ 8  reference ← hex(randomBytes(16))                              ▷ opaque
+ 9  sealed    ← SEAL-CHOICE(candidateId, reference, election.id,
+                            voter.registeredConstituencyId)
+10  BEGIN TRANSACTION
+11      if status = ∅
+12          INSERT VoterElectionStatus{voterId, electionId, hasVoted=true, votedAt=now}
+13      else
+14          UPDATE VoterElectionStatus SET hasVoted=true, votedAt=now
+15              WHERE id = status.id AND hasVoted = false       ▷ guarded
+16      if rowsAffected = 0 → ROLLBACK; error ALREADY_VOTED
+17      INSERT SubmittedBallot{reference, electionId,
+              constituencyId = voter.registeredConstituencyId,
+              nonce, ciphertext, tag, submittedAt = now}
+18      UPDATE RemotePollingRequest SET status = "USED"
+              WHERE voterId = voterId AND electionId = election.id
+              AND status = "APPROVED"
+19  COMMIT
+20  return { ballotReference: reference, submittedAt }             ▷ no choice
+ ON CONFLICT (unique violation P2002) → error ALREADY_VOTED</pre>
+    <p><b>Why the guard is in the database.</b> The read at line 3 is a fast path that produces a friendly error in the common case, but it is not the guarantee. The guarantee is the unique index on <code>(voterId, electionId)</code> and the guarded update at line 15: if two transactions interleave, exactly one commits and the other receives a unique violation at line 17 or loses the row-level race at line 15. The application converts that violation into the same domain error, so the caller cannot distinguish which mechanism caught them.</p>
+    <p><b>Why the request is marked USED inside the transaction.</b> A request marked USED outside the transaction could survive a rolled-back ballot, leaving a voter who has not voted holding a spent permission. Inside, the two facts are written or not written together.</p>
+
+    <h3>6.2.4 Reconciliation</h3>
+    <pre class="code-block">RECONCILE(electionId)
+ 1  election ← find by id; if lifecycle ≠ CLOSED → error ELECTION_NOT_CLOSED
+ 2  issued   ← count SubmittedBallot grouped by constituencyId
+ 3  recorded ← count VoterElectionStatus where hasVoted = true and
+                       voter.registeredConstituencyId = C, grouped by C
+ 4  for each constituency C in election
+ 5      discrepancy ← issued[C] − recorded[C]
+ 6  return rows, totalDiscrepancy
+
+ The report contains counts only. No ballot reference, no voter, and no
+ candidate appears in the response — a reconciliation that could identify
+ a ballot would defeat the purpose of sealing it.</pre>
+    <p>In a correct run every discrepancy is zero, because lines 12&ndash;17 of the submission transaction write both sides. A non-zero value is therefore evidence of a defect or of a row inserted outside the application, which is exactly what the report exists to detect.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:6.3 Pseudocode of the State Machine-->
+    <h2>6.3 Pseudocode of the Request State Machine</h2>
+    <p>The transition table is one constant. Every mutation passes through the guard below, so legality is decided in one place.</p>
+    <pre class="code-block">TRANSITIONS = {
+  PENDING       : [UNDER_REVIEW, WITHDRAWN, EXPIRED],
+  UNDER_REVIEW  : [APPROVED, REJECTED, WITHDRAWN, PENDING, EXPIRED],
+  APPROVED      : [USED, EXPIRED],
+  REJECTED      : [], WITHDRAWN : [], USED : [], EXPIRED : []
+}
+
+TRANSITION(requestId, target, actor)
+ 1  request ← find by id; if ∅ → NOT_FOUND
+ 2  if target ∉ TRANSITIONS[request.status] → error ILLEGAL_TRANSITION (409)
+ 3  if actor is a voter and request.voterId ≠ actor.id → NOT_FOUND   ▷ not 403
+ 4  if target = APPROVED
+ 5      if election.lifecycle = CLOSED → error ELECTION_CLOSED
+ 6      if VoterElectionStatus(voter, election).hasVoted → error ALREADY_VOTED
+ 7  if target = REJECTED and trim(reviewNote) = "" → error REASON_REQUIRED
+ 8  BEGIN TRANSACTION
+ 9      UPDATE request SET status = target, reviewedById = actor, reviewedAt = now
+10      if target = APPROVED
+11          INSERT RemotePollingAssignment{requestId, voterId, electionId,
+                     pollingCentreId = request.pollingCentreId, assignedById}
+12      if target = REJECTED
+13          UPDATE request SET reviewNote = note
+14  COMMIT
+15  AUDIT(actor, "REMOTE_REQUEST_" + target, requestId)
+16  return updated request</pre>
+    <p>Three details are deliberate. Line 3 returns NOT_FOUND rather than FORBIDDEN when a voter addresses someone else&rsquo;s request, so the API does not confirm that the identifier exists. Lines 10&ndash;11 create the assignment inside the same transaction as the status change, which is what makes INV-1 (an approved request has exactly one assignment) a property of the database rather than of a subsequent call. And line 15 writes the audit record after the commit: if the audit write failed first, a committed transition could exist with no record, whereas an audit write that fails after the commit loses a record but leaves the system consistent. Neither ordering is perfect; the chosen one prefers consistency of domain state over completeness of the log, a trade recorded in Section 8.3.</p>
+
+    <h3>6.3.1 Authentication Pseudocode</h3>
+    <pre class="code-block">OFFICER-LOGIN(username, password)
+ 1  officer ← find by username
+ 2  hash ← officer ? officer.passwordHash : DUMMY_HASH      ▷ timing equalisation
+ 3  ok   ← bcrypt.compare(password, hash)
+ 4  if officer = ∅ or not ok → error INVALID_CREDENTIALS (identical body)
+ 5  session ← INSERT Session{id = randomUUID(), actorType = OFFICER, role}
+ 6  token   ← JWT.sign({sub: officer.id, role, jti: session.id}, 2h)
+ 7  AUDIT(officer, "OFFICER_LOGIN")
+ 8  return { token, expiresAt, officer }
+
+VERIFY-OTP(challengeId, otp)
+ 1  challenge ← find by challengeId
+ 2  if ∅ or challenge.consumedAt ≠ ∅ or now &gt; expiresAt → error INVALID_OTP
+ 3  if challenge.attemptCount ≥ 5 → error TOO_MANY_ATTEMPTS
+ 4  ok ← bcrypt.compare(otp, challenge.otpHash)
+ 5  if not ok → INCREMENT attemptCount; error INVALID_OTP
+ 6  BEGIN TRANSACTION; mark consumedAt = now; COMMIT     ▷ single use
+ 7  session ← INSERT Session{actorType = VOTER, voterId}
+ 8  return { token, expiresAt, voter }</pre>
+    <p>The dummy hash at line 2 of the login procedure is the whole of the timing defence. Without it, an unknown username returns in microseconds while a known one takes the 250 ms a cost-12 bcrypt comparison requires, and the difference is a usable oracle for enumerating accounts. With it, both paths perform one comparison and return the same body.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:6.4 Code Snippets-->
+    <h2>6.4 Code Snippets</h2>
+    <p>Four excerpts are reproduced from the repository. They are the code in which the design is actually enforced.</p>
+
+    <h3>6.4.1 The Ballot Signature</h3>
+    <pre class="code-block">// backend/src/modules/ballots/service.ts
+// backend/src/modules/ballots/service.ts
+// The constituency that builds a ballot has exactly one legal source: the
+// voter's own record. Taking the whole Voter — not a loose constituencyId —
+// makes it impossible for a caller to pass the remote centre's constituency
+// by accident. This is the Core Rule enforced by signature.
+async generateBallot(voter: Voter): Promise<Result<unknown>> {
+  const election = await electionRepository.findCurrent();
+  if (!election || election.lifecycle !== 'ACTIVE')
+    return err(409, 'CONFLICT', 'The election is not active');
+
+  const status = await repo.findElectionStatus(voter.id, election.id);
+  if (status?.hasVoted)
+    return err(409, 'CONFLICT', new AlreadyVotedError().message);
+
+  const candidates = await repo.findCandidates(
+    election.id, voter.registeredConstituencyId);
+  if (candidates.length === 0)
+    return err(409, 'CONFLICT', 'No candidates registered for your
+      constituency in this election');
+
+  // An approved assignment answers "where may I appear" — never
+  // "which ballot". The candidates above came from the voter's
+  // registered constituency either way.
+  const assignment = await repo.findAssignment(voter.id, election.id);
+  const constituency = await repo.findConstituency(voter.registeredConstituencyId);
+
+  return ok({ election, constituency, candidates,
+              remoteAssignment: assignment ?? null });
+}</pre>
+    <p>Note what the function does not accept: an election, a constituency, a centre or a body. Its only input is a voter identifier, which the router reads from the authenticated session. A caller cannot ask for a different ballot because there is no argument in which to express the request.</p>
+
+    <h3>6.4.2 The Sealing Function</h3>
+    <pre class="code-block">// backend/src/modules/ballots/crypto.ts
+const AAD = (ref: string, electionId: string, constituencyId: string) =&gt;
+  `${ref}|${electionId}|${constituencyId}`;
+
+export function sealChoice(
+  choice: string, ballotReference: string,
+  electionId: string, constituencyId: string,
+) {
+  const nonce = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, nonce);
+  cipher.setAAD(Buffer.from(AAD(ballotReference, electionId, constituencyId)));
+  const ciphertext = Buffer.concat([
+    cipher.update(choice, 'utf8'), cipher.final(),
+  ]);
+  return { nonce, ciphertext, authTag: cipher.getAuthTag() };
+}</pre>
+    <p>The associated data is produced by one function used by both sealing and opening. Duplicating the string construction in two places would invite the two copies to diverge, and a divergence would either break every ballot or, worse, silently stop binding the reference.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>6.4.3 The Guarded Update</h3>
+    <pre class="code-block">// backend/src/modules/ballots/service.ts (submission, abridged)
+const sealed = sealChoice(candidateId, reference,
+                          election.id, voter.registeredConstituencyId);
+
+await prisma.$transaction(async (tx) =&gt; {
+  const marked = await tx.voterElectionStatus.updateMany({
+    where: { voterId: voter.id, electionId: election.id, hasVoted: false },
+    data:  { hasVoted: true, votedAt: new Date() },
+  });
+  if (marked.count === 0) throw new AlreadyVotedError();
+
+  await tx.submittedBallot.create({
+    data: { ballotReference: reference, electionId: election.id,
+            constituencyId: voter.registeredConstituencyId, ...sealed },
+  });
+
+  await tx.remotePollingRequest.updateMany({
+    where: { voterId: voter.id, electionId: election.id, status: 'APPROVED' },
+    data:  { status: 'USED' },
+  });
+});</pre>
+    <p><code>updateMany</code> with <code>hasVoted: false</code> in the predicate is a compare-and-set. It returns a count, and a count of zero means another transaction has already consumed the identity. There is no read-then-write window in which two requests could both observe <code>hasVoted: false</code>.</p>
+
+    <h3>6.4.4 The Authorization Guard</h3>
+    <pre class="code-block">// backend/src/middleware/authorize.ts
+export const requireRole = (...allowed: OfficerRole[]) =&gt;
+  (req: Request, _res: Response, next: NextFunction) =&gt; {
+    if (req.auth?.actorType !== 'OFFICER') return next(new ForbiddenError());
+    if (!allowed.includes(req.auth.role)) return next(new ForbiddenError());
+    next();
+  };
+
+// backend/src/modules/remote-polling/routes.ts (excerpt)
+remotePollingRouter.post('/requests/:id/claim',   authenticate,
+  requireRole('VERIFICATION_OFFICER'), claim);
+remotePollingRouter.post('/requests/:id/approve', authenticate,
+  requireRole('VERIFICATION_OFFICER'), approve);
+remotePollingRouter.get ('/requests',             authenticate,
+  requireRole('VERIFICATION_OFFICER','POLLING_CENTRE_OFFICER'), listQueue);</pre>
+    <p>The allow-list is per route and there is no wildcard. A new role added to the enum has no access until it is named in a route, which is the operational meaning of deny-by-default.</p>
+
+    <h3>6.4.5 Code Volume by Module</h3>
+    <!--TAB:6.2:Approximate source volume-->
+    <table class="compact">
+        <tr><th style="width:26%;">Area</th><th style="width:18%;">Approx. lines</th><th>Includes</th></tr>
+        <tr><td>Schema and migrations</td><td>~420</td><td>14 models, 4 enums, two migrations, one hand-written index</td></tr>
+        <tr><td>Seed</td><td>~180</td><td>Idempotent upserts for 15 rows of reference data</td></tr>
+        <tr><td>Infrastructure</td><td>~260</td><td>App, server, config, logger, Result, error classes</td></tr>
+        <tr><td>Middleware</td><td>~220</td><td>Authenticate, requireRole, validate, errorHandler, four limiters</td></tr>
+        <tr><td>Nine modules</td><td>~2,300</td><td>Router, service, repository and schema per module</td></tr>
+        <tr><td>Tests</td><td>~1,150</td><td>Six suites, 49 cases, shared helpers</td></tr>
+        <tr><td>Frontend</td><td>~3,400</td><td>14 pages, 12 components, router, services, types</td></tr>
+    </table>
+    <p class="table-caption">Table 6.2: Approximate source volume</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:6.5 Screenshots-->
+    <h2>6.5 Screens</h2>
+    <p>The screens below correspond to the pages described in Section 4.8. Each figure shows the layout, the data displayed and the control that advances the workflow.</p>
+
+    <h3>6.5.1 Voter Sign-In</h3>
+    <!--FIG:6.1:Voter sign-in - voter number entry-->
+    <div class="screenshot">
+        <div class="centered">
+            <div class="page-title">Vote Anywhere</div>
+            <div class="page-sub">A Remote Polling System Simulator</div>
+            <div class="card" style="text-align:left;">
+                <div class="form-group"><label>Voter number</label><span class="form-control">VA-0001</span></div>
+                <span class="btn btn-primary" style="width:100%;text-align:center;display:block;">Send one-time code</span>
+            </div>
+            <div class="muted">Officers sign in here</div>
+        </div>
+    </div>
+    <p class="figure-caption">Figure 6.1: Voter sign-in &mdash; voter number entry</p>
+    <p>The first screen asks for one value. It does not ask for a password, because a voter has none; it does not ask for a constituency, because the server knows it. The link at the foot switches to the officer form, which is the only place a password appears.</p>
+
+    <h3>6.5.2 One-Time Code Verification</h3>
+    <!--FIG:6.2:One-time code verification-->
+    <div class="screenshot">
+        <div class="centered">
+            <div class="page-title">Enter your code</div>
+            <div class="page-sub">A six-digit code was sent for VA-0001</div>
+            <div class="card" style="text-align:left;">
+                <div class="form-group"><label>One-time code</label><span class="form-control">4 8 2 9 1 6</span></div>
+                <span class="btn btn-primary" style="width:100%;text-align:center;display:block;">Verify and continue</span>
+                <div class="muted">Expires in 4:52 · 5 attempts allowed</div>
+            </div>
+        </div>
+    </div>
+    <p class="figure-caption">Figure 6.2: One-time code verification</p>
+    <p>The development build displays the code in the API response and in the server log, because no message gateway is connected. Section 8.3 records this as the most significant gap between the simulator and a production system: the code is generated with <code>crypto.randomInt</code> and hashed with bcrypt, but its delivery is simulated, so the possession factor is not actually tested.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>6.5.3 Voter Dashboard</h3>
+    <!--FIG:6.3:Voter dashboard with an approved remote request-->
+    <div class="screenshot">
+        <div class="navbar"><span class="brand">Vote Anywhere</span><span class="navlinks">Voter Portal &nbsp;·&nbsp; VA-0001 &nbsp;·&nbsp; Sign out</span></div>
+        <div class="sidebar">
+            <div class="menu-label">VOTER MENU</div>
+            <div class="menu-item active">Dashboard</div>
+            <div class="menu-item">Eligibility Check</div>
+            <div class="menu-item">Remote Polling Request</div>
+            <div class="menu-item">Request Status &amp; Centre</div>
+            <div class="menu-item">Controlled Ballot</div>
+        </div>
+        <div class="body">
+            <div class="page-title">Dashboard</div>
+            <div class="page-sub">Arjun Karthik · VA-0001 · Chennai South</div>
+            <div class="row">
+                <div class="col card"><span class="muted">REGISTERED CONSTITUENCY</span><br><b>Chennai South (CHN-S)</b></div>
+                <div class="col card"><span class="muted">HOME POLLING CENTRE</span><br><b>Chennai South PC 1 (CHN-S-01)</b></div>
+            </div>
+            <div class="row">
+                <div class="col card"><span class="muted">CURRENT ELECTION</span><br><b>General Election 2026</b> <span class="badge">ACTIVE</span></div>
+                <div class="col card"><span class="muted">BALLOT</span><br><b>Not submitted</b></div>
+            </div>
+            <div class="muted">REQUEST PROGRESS</div>
+            <div class="stepper">
+                <div class="step done">Submitted</div>
+                <div class="step done">Under review</div>
+                <div class="step current">Approved</div>
+                <div class="step">Voted</div>
+            </div>
+        </div>
+    </div>
+    <p class="figure-caption">Figure 6.3: Voter dashboard with an approved remote request</p>
+    <p>The dashboard is the only screen a voter needs between applying and voting. The four cards answer the four questions a voter asks, and the stepper answers the fifth: am I still waiting for something. The current step is rendered differently from the completed steps, so the state is legible without reading the labels.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>6.5.4 Eligibility Check</h3>
+    <!--FIG:6.4:Eligibility check with four named checks-->
+    <div class="screenshot">
+        <div class="navbar"><span class="brand">Vote Anywhere</span><span class="navlinks">Voter Portal &nbsp;·&nbsp; VA-0001 &nbsp;·&nbsp; Sign out</span></div>
+        <div class="body" style="margin-left:0;">
+            <div class="page-title">Eligibility Check</div>
+            <div class="page-sub">Four checks, evaluated from your registration</div>
+            <div class="card">
+                <div class="checkrow"><span class="tick">✓</span> You are on the voter roll for this election</div>
+                <div class="checkrow"><span class="tick">✓</span> Your registered constituency is part of the election</div>
+                <div class="checkrow"><span class="tick">✓</span> You have not already voted in this election</div>
+                <div class="checkrow"><span class="tick">✓</span> You have a polling centre in your constituency</div>
+            </div>
+            <div class="card" style="background:#eef7ee;"><b>Eligible to vote.</b> You may vote at your home centre, or apply for a remote polling centre elsewhere.</div>
+        </div>
+    </div>
+    <p class="figure-caption">Figure 6.4: Eligibility check with four named checks</p>
+    <p>The four checks are returned as a list rather than as a single boolean, because a voter refused eligibility needs to know which condition failed. A bare &ldquo;not eligible&rdquo; would send them to an office with no information; the named check sends them with a specific question.</p>
+
+    <h3>6.5.5 Remote Polling Request</h3>
+    <!--FIG:6.5:Remote polling request form-->
+    <div class="screenshot">
+        <div class="navbar"><span class="brand">Vote Anywhere</span><span class="navlinks">Voter Portal &nbsp;·&nbsp; VA-0001 &nbsp;·&nbsp; Sign out</span></div>
+        <div class="body" style="margin-left:0;">
+            <div class="page-title">Remote Polling Request</div>
+            <div class="page-sub">Choose a centre outside your registered constituency</div>
+            <div class="form-group"><label>Election</label><span class="form-control">General Election 2026</span></div>
+            <div class="form-group"><label>Registered constituency</label><span class="form-control">Chennai South (fixed)</span></div>
+            <div class="form-group"><label>Requested polling centre</label><span class="form-control">Madurai Central PC 1 — Madurai Central (MDU-C)</span></div>
+            <div class="form-group"><label>Reason (optional)</label><span class="form-control" style="height:44px;">Working away from my registered constituency.</span></div>
+            <div class="muted">Your registered constituency will not change. The centre changes only where you vote.</div>
+            <span class="btn btn-primary">Submit request</span> <span class="btn">Cancel</span>
+        </div>
+    </div>
+    <p class="figure-caption">Figure 6.5: Remote polling request form</p>
+    <p>Three elements of this form carry the Core Rule to the user. The registered constituency is shown as a read-only field with the word <i>fixed</i>. Each centre in the list carries its constituency in brackets, so the mismatch is visible at the point of choice. And the sentence above the button states the rule in the user&rsquo;s own terms.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>6.5.6 Officer Review Queue</h3>
+    <!--FIG:6.6:Officer review queue-->
+    <div class="screenshot">
+        <div class="navbar"><span class="brand">Vote Anywhere</span><span class="navlinks">Officer Portal &nbsp;·&nbsp; Vikram Surya &nbsp;·&nbsp; Verification Officer &nbsp;·&nbsp; Sign out</span></div>
+        <div class="sidebar">
+            <div class="menu-label">OFFICER MENU</div>
+            <div class="menu-item active">Dashboard</div>
+            <div class="menu-item">Verification &amp; Check-in</div>
+        </div>
+        <div class="body">
+            <div class="page-title">Remote Polling Review Queue</div>
+            <div class="page-sub">2 pending · 1 under review</div>
+            <table>
+                <tr><th>Voter</th><th>Registered</th><th>Requested centre</th><th>Status</th><th>Action</th></tr>
+                <tr><td>VA-0001<br><span class="muted">Arjun Karthik</span></td><td>Chennai South</td><td>MDU-C-01</td><td><span class="badge warn">PENDING</span></td><td><span class="btn">Claim</span></td></tr>
+                <tr><td>VA-0002<br><span class="muted">Meera Lakshmi</span></td><td>Madurai Central</td><td>CHN-S-01</td><td><span class="badge info">UNDER_REVIEW</span></td><td><span class="btn">Approve</span> <span class="btn">Reject</span></td></tr>
+            </table>
+            <div class="card"><span class="muted">STATED REASON</span><br>Working away from registered constituency during the election period.</div>
+        </div>
+    </div>
+    <p class="figure-caption">Figure 6.6: Officer review queue</p>
+
+    <h3>6.5.7 Polling Centre Verification</h3>
+    <!--FIG:6.7:Verification at a polling centre-->
+    <div class="screenshot">
+        <div class="navbar"><span class="brand">Vote Anywhere</span><span class="navlinks">Officer Portal &nbsp;·&nbsp; Divya Menon &nbsp;·&nbsp; Polling Centre Officer &nbsp;·&nbsp; Sign out</span></div>
+        <div class="body" style="margin-left:0;">
+            <div class="page-title">Verification &amp; Check-in</div>
+            <div class="page-sub">Enter a voter number to check entitlement at this centre</div>
+            <div class="form-group"><label>Voter number</label><span class="form-control">VA-0001</span></div>
+            <div class="card">
+                <b>Arjun Karthik · VA-0001</b><br>
+                Registered constituency: <b>Chennai South</b><br>
+                Remote assignment: <b>MDU-C-01</b> <span class="badge ok">VALID</span><br>
+                Ballot status: <b>Not yet submitted</b>
+            </div>
+            <div class="card" style="background:#eef7ee;"><b>Entitled to vote at this centre.</b> The ballot will carry Chennai South candidates.</div>
+        </div>
+    </div>
+    <p class="figure-caption">Figure 6.7: Verification at a polling centre</p>
+    <p>The verification screen is read-only by design. Nothing an officer does here changes a record; it reports whether an assignment exists, whether it is valid for this centre, and whether the voter has already voted. The two lines that matter to the officer are the registered constituency and the assignment, and the sentence at the foot states the consequence explicitly so that the officer can explain it to the voter.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>6.5.8 Election Administration</h3>
+    <!--FIG:6.8:Administration dashboard-->
+    <div class="screenshot">
+        <div class="navbar"><span class="brand">Vote Anywhere</span><span class="navlinks">Administration &nbsp;·&nbsp; Asha Raman &nbsp;·&nbsp; Sign out</span></div>
+        <div class="sidebar">
+            <div class="menu-label">ADMIN MENU</div>
+            <div class="menu-item active">Dashboard</div>
+            <div class="menu-item">Elections</div>
+            <div class="menu-item">Requests Report</div>
+            <div class="menu-item">Audit Trail</div>
+        </div>
+        <div class="body">
+            <div class="page-title">Administration Dashboard</div>
+            <div class="row">
+                <div class="col card"><span class="muted">ELECTIONS</span><br><b>0 configured · 1 active · 0 closed</b></div>
+                <div class="col card"><span class="muted">VOTERS</span><br><b>2</b></div>
+            </div>
+            <div class="row">
+                <div class="col card"><span class="muted">SUBMITTED BALLOTS</span><br><b>0</b></div>
+                <div class="col card"><span class="muted">REQUESTS</span><br><b>1 pending · 0 approved</b></div>
+            </div>
+            <div class="divider"></div>
+            <table>
+                <tr><th>Election</th><th>Lifecycle</th><th>Starts</th><th>Ends</th><th>Action</th></tr>
+                <tr><td>General Election 2026</td><td><span class="badge">ACTIVE</span></td><td>01 May 2026</td><td>01 May 2026</td><td><span class="btn">Close election</span></td></tr>
+            </table>
+        </div>
+    </div>
+    <p class="figure-caption">Figure 6.8: Administration dashboard</p>
+
+    <h3>6.5.9 Reconciliation and Results</h3>
+    <!--FIG:6.9:Reconciliation report and aggregate results-->
+    <div class="screenshot">
+        <div class="navbar"><span class="brand">Vote Anywhere</span><span class="navlinks">Administration &nbsp;·&nbsp; Asha Raman &nbsp;·&nbsp; Sign out</span></div>
+        <div class="body" style="margin-left:0;">
+            <div class="page-title">Reconciliation</div>
+            <div class="page-sub">General Election 2026 · closed · counts only</div>
+            <table>
+                <tr><th>Constituency</th><th>Ballots issued</th><th>Voting records</th><th>Discrepancy</th></tr>
+                <tr><td>Chennai South</td><td>1</td><td>1</td><td><span class="badge ok">0</span></td></tr>
+                <tr><td>Madurai Central</td><td>0</td><td>0</td><td><span class="badge ok">0</span></td></tr>
+            </table>
+            <div class="muted">Total discrepancy: 0</div>
+            <div class="divider"></div>
+            <div class="page-title" style="font-size:13pt;">Results</div>
+            <table>
+                <tr><th>Constituency</th><th>Candidate</th><th>Symbol</th><th>Votes</th></tr>
+                <tr><td>Chennai South</td><td>Kavin Raj</td><td>Lamp</td><td>1</td></tr>
+                <tr><td>Chennai South</td><td>Divya Nair</td><td>Book</td><td>0</td></tr>
+                <tr><td>Madurai Central</td><td>Saran Prakash</td><td>Cycle</td><td>0</td></tr>
+                <tr><td>Madurai Central</td><td>Anitha Selvi</td><td>Star</td><td>0</td></tr>
+            </table>
+        </div>
+    </div>
+    <p class="figure-caption">Figure 6.9: Reconciliation report and aggregate results</p>
+    <p>The one ballot cast in this demonstration was cast by a voter registered in Chennai South who was approved to attend a centre in Madurai. It appears in the Chennai South row of both the reconciliation and the results. That single fact is the Core Rule, demonstrated end to end in the finished application.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:6.6 Integration-->
+    <h2>6.6 Integration</h2>
+    <p>Integration is described here as the sequence in which modules call one another during a complete voter journey, because the order reveals the dependencies that the architecture permits.</p>
+
+    <h3>6.6.1 Integration Sequence of a Complete Journey</h3>
+    <!--TAB:6.3:Integration sequence across modules-->
+    <table class="tiny">
+        <tr><th style="width:5%;">#</th><th style="width:20%;">Action</th><th style="width:26%;">Modules invoked</th><th>Cross-module effect</th></tr>
+        <tr><td>1</td><td>Voter enters voter number</td><td><code>auth</code> &rarr; <code>audit</code></td><td>Challenge row created; OTP logged for development only</td></tr>
+        <tr><td>2</td><td>Voter verifies OTP</td><td><code>auth</code> &rarr; <code>audit</code></td><td>Challenge consumed; session created with <code>jti</code></td></tr>
+        <tr><td>3</td><td>Dashboard loads</td><td><code>remote-polling</code> &rarr; <code>voters</code>, <code>elections</code>, <code>ballots</code></td><td>Read only; four queries composed into one response</td></tr>
+        <tr><td>4</td><td>Eligibility checked</td><td><code>voters</code> &rarr; <code>elections</code></td><td>Four checks evaluated; nothing written</td></tr>
+        <tr><td>5</td><td>Request submitted</td><td><code>remote-polling</code> &rarr; <code>voters</code>, <code>elections</code>, <code>audit</code></td><td>Request row; partial index consulted</td></tr>
+        <tr><td>6</td><td>Officer claims</td><td><code>remote-polling</code> &rarr; <code>audit</code></td><td>Reviewer recorded; status UNDER_REVIEW</td></tr>
+        <tr><td>7</td><td>Officer approves</td><td><code>remote-polling</code> &rarr; <code>elections</code>, <code>ballots</code>, <code>audit</code></td><td>Transaction writes status and assignment</td></tr>
+        <tr><td>8</td><td>Ballot opened</td><td><code>ballots</code> &rarr; <code>elections</code>, <code>remote-polling</code></td><td>Candidates read using the registered constituency</td></tr>
+        <tr><td>9</td><td>Ballot submitted</td><td><code>ballots</code> &rarr; <code>audit</code></td><td>Sealed row, status consumed, request marked USED, all in one transaction</td></tr>
+        <tr><td>10</td><td>Officer verifies at centre</td><td><code>officer</code> &rarr; <code>voters</code>, <code>remote-polling</code>, <code>ballots</code></td><td>Read only</td></tr>
+        <tr><td>11</td><td>Election closed</td><td><code>elections</code> &rarr; <code>remote-polling</code>, <code>audit</code></td><td>Open requests expired, one audit record each</td></tr>
+        <tr><td>12</td><td>Reconciliation</td><td><code>simulator</code> &rarr; <code>elections</code>, <code>ballots</code></td><td>Counts compared; refusal if not closed</td></tr>
+        <tr><td>13</td><td>Results</td><td><code>simulator</code> &rarr; <code>elections</code>, <code>ballots</code></td><td>Sealed choices opened and aggregated</td></tr>
+    </table>
+    <p class="table-caption">Table 6.3: Integration sequence across modules</p>
+    <p>The dependency directions in this table point in one direction only: <code>remote-polling</code> may consult <code>voters</code> and <code>elections</code>; <code>ballots</code> may consult <code>elections</code> and <code>remote-polling</code>; <code>simulator</code> may consult <code>ballots</code>. No module consults <code>simulator</code>, and <code>ballots</code> never calls back into <code>remote-polling</code> to write. The graph is acyclic, which is why the module boundaries can be enforced by review rather than by a build tool.</p>
+
+    <h3>6.6.2 The One Place Where Two Modules Share a Transaction</h3>
+    <p>Step 9 is the only integration point at which a single transaction writes through two modules&rsquo; concerns: the identity side owned by <code>ballots</code> and the request status owned by <code>remote-polling</code>. The write is performed by <code>ballotService</code> using the Prisma transaction client, which is passed explicitly so that no repository opens its own connection. This is the one deliberate exception to the rule that a module does not write another&rsquo;s table, and it exists because the alternative &mdash; a ballot that is stored while the permission remains unspent &mdash; is a worse outcome than a slightly blurred ownership line.</p>
+    <div class="page-number">{{PN}}</div>
+</div>

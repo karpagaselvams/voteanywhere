@@ -1,0 +1,37 @@
+<div class="page">
+    <!--TOC:chapter:REFERENCES-->
+    <h1 class="chapter-title">REFERENCES</h1>
+    <p class="ref-note">References are listed in the order in which they are first used. Standards and primary specifications are cited by their official identifier so that they can be located independently of this report.</p>
+
+    <ol class="references">
+        <li>Estonian Information System Authority. <i>i-Voting: General Framework and Security Architecture.</i> Tallinn: RIA, 2019. The longest-running national internet voting system; cited in Section 2.2 for its separation of the vote-collection service from the eligibility service.</li>
+        <li>Swiss Post. <i>E-Voting System: Cryptographic Proof of Correctness, Version 1.0.</i> Bern: Swiss Post, 2019. Cited in Section 2.2 for universal verifiability and for the publication of the specification for independent review.</li>
+        <li>New South Wales Electoral Commission. <i>iVote System Review and Post-Implementation Report.</i> Sydney: NSWEC, 2019, and Brightwell et al., <i>iVote Failures: An Analysis of the 2021 Local Government Elections.</i> Cited in Section 2.2 for the operational failure modes of a remote channel under load.</li>
+        <li>Election Commission of India. <i>Electronically Transmitted Postal Ballot System (ETPBS) and the Remote Voting Machine (RVM) Demonstration.</i> New Delhi: ECI, 2023. Cited in Section 2.2 as the closest existing analogue to the workflow modelled here.</li>
+        <li>Adida, B. &ldquo;Helios: Web-based Open-Audit Voting.&rdquo; <i>Proceedings of the 17th USENIX Security Symposium</i>, 2008, pp. 335&ndash;348. Cited in Section 2.2 for end-to-end verifiability in an academic prototype.</li>
+        <li>Cortier, V., Galindo, D., Glondu, S., and Izabach&egrave;ne, M. &ldquo;Election Verifiability for Helios under Weaker Trust Assumptions.&rdquo; <i>ESORICS 2014</i>, LNCS 8713, pp. 327&ndash;344. Also Belenios: Cortier, V., Gaudry, P., and Glondu, S., &ldquo;Belenios: A Simple Private and Verifiable Electronic Voting System,&rdquo; <i>FPS 2019</i>. Cited in Section 2.2.</li>
+        <li>Bernhard, M., Benaloh, J., Halderman, J. A., et al. &ldquo;Public Evidence from Secret Ballots.&rdquo; <i>E-Vote-ID 2017</i>, LNCS 10615, pp. 84&ndash;109. Cited in Section 2.3 for software independence as a design property.</li>
+        <li>Chaum, D. &ldquo;Secret-Ballot Receipts: True Voter-Verifiable Elections.&rdquo; <i>IEEE Security and Privacy</i>, vol. 2, no. 1, 2004, pp. 38&ndash;47. Cited in Section 8.4.2 as the origin of the receipt idea.</li>
+        <li>Moran, T., and Naor, M. &ldquo;Receipt-Free Universally-Verifiable Voting with Everlasting Privacy.&rdquo; <i>CRYPTO 2006</i>, LNCS 4117, pp. 373&ndash;392. Cited in Section 2.3 for the tension between receipt-freeness and voter confidence.</li>
+        <li>Juels, A., Catalano, D., and Jakobsson, M. &ldquo;Coercion-Resistant Electronic Elections.&rdquo; <i>WPES 2005</i>, pp. 61&ndash;70. Cited in Section 8.5.2 for the coercion risk of any remote channel.</li>
+        <li>Park, S., Specter, M., Narula, N., and Rivest, R. L. &ldquo;Going from Bad to Worse: From Internet Voting to Blockchain Voting.&rdquo; <i>Journal of Cybersecurity</i>, vol. 7, no. 1, 2021. Cited in Section 2.3 and 2.4 for the argument that distribution and immutability do not address the trust problem in remote voting.</li>
+        <li>Springall, D., Finkenauer, T., Durumeric, Z., et al. &ldquo;Security Analysis of the Estonian Internet Voting System.&rdquo; <i>CCS 2014</i>, pp. 703&ndash;715. Cited in Section 2.3 for the value of independent analysis of a deployed system.</li>
+        <li>National Institute of Standards and Technology. <i>Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC.</i> NIST Special Publication 800-38D, 2007. The specification followed for the sealed-ballot construction in Section 6.2.2.</li>
+        <li>National Institute of Standards and Technology. <i>Digital Identity Guidelines: Authentication and Lifecycle Management.</i> NIST Special Publication 800-63B, 2017. Cited in Section 3.3 for authentication assurance levels and rate-limiting guidance.</li>
+        <li>Open Worldwide Application Security Project. <i>OWASP Application Security Verification Standard, Version 4.0.3.</i> Cited in Section 3.3 as the checklist behind the authentication and session requirements.</li>
+        <li>Open Worldwide Application Security Project. <i>OWASP Top Ten, 2021.</i> Cited in Section 7.6 for the categories against which the adversarial tests were chosen.</li>
+        <li>Bernstein, D. J., and Lange, T. &ldquo;Post-quantum Cryptography.&rdquo; <i>Nature</i>, vol. 549, 2017, pp. 188&ndash;194. Cited in Section 8.4 as the reason key rotation and algorithm agility were treated as future requirements rather than as solved problems.</li>
+        <li>Provos, N., and Mazi&egrave;res, D. &ldquo;A Future-Adaptable Password Scheme.&rdquo; <i>USENIX Annual Technical Conference</i>, 1999. The origin of bcrypt, used for password and one-time-code hashing throughout.</li>
+        <li>Prisma Data, Inc. <i>Prisma ORM Documentation: Schema, Migrations and Transactions.</i> Version 6.2, 2025. Consulted for transaction semantics and for the documented inability to express partial indexes, which required the hand-written constraint in Section 4.7.9.</li>
+        <li>PostgreSQL Global Development Group. <i>PostgreSQL 16 Documentation: Partial Indexes, Transaction Isolation and Constraints.</i> 2023. The reference for the partial unique index and for the isolation behaviour relied on in Section 6.2.3.</li>
+        <li>Express.js contributors. <i>Express 4.x API Reference: Routing and Middleware.</i> 2024. Consulted for middleware ordering, which Section 4.2.4 records.</li>
+        <li>Meta Open Source. <i>React 19 Documentation.</i> 2024. Consulted for the component model used in the three portals.</li>
+        <li>Vite contributors. <i>Vite 6 Documentation: Server Proxy and Build.</i> 2024. The reference for the development proxy described in Section 4.2.5.</li>
+        <li>Node.js contributors. <i>Node.js 22 Documentation: <code>crypto</code> &mdash; Cipher, Decipher, randomBytes and randomInt.</i> 2024. The only cryptographic library used by the application.</li>
+        <li>Elmasri, R., and Navathe, S. B. <i>Fundamentals of Database Systems.</i> 7th ed. Pearson, 2016. The notation for the entity-relationship diagram in Section 4.6 and the normalisation argument in Section 4.6.5.</li>
+        <li>Sommerville, I. <i>Software Engineering.</i> 10th ed. Pearson, 2016. The structure followed for requirements, design and testing chapters.</li>
+        <li>Pressman, R. S., and Maxim, B. R. <i>Software Engineering: A Practitioner&rsquo;s Approach.</i> 9th ed. McGraw-Hill, 2020. Consulted for the test-type taxonomy in Section 7.3.</li>
+        <li>Project repository. <i>Vote Anywhere &mdash; A Remote Polling System Simulator for Geographically Mobile Voters.</i> Source code, schema, migrations, seed, test suites and documentation, 2026. Every implementation claim in Chapters 6 and 7 is verifiable against it.</li>
+    </ol>
+    <div class="page-number">{{PN}}</div>
+</div>

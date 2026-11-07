@@ -1,0 +1,357 @@
+<div class="page">
+    <!--TOC:chapter:CHAPTER 7: TESTING-->
+    <h1 class="chapter-title">CHAPTER 7<br>TESTING</h1>
+
+    <!--TOC:sub:7.1 Introduction to Testing-->
+    <h2>7.1 Introduction to Testing</h2>
+    <p>A system that claims a security property is worth exactly what its evidence for that property is worth. This chapter therefore does not describe testing as a phase that followed construction; it describes the evidence collected, the technique that produced each item of evidence, and the defects that the process found.</p>
+    <p>The strategy had three layers. <b>Automated integration tests</b> exercised the HTTP surface against a real PostgreSQL database, because every guarantee this project claims &mdash; the unique index, the partial index, the transaction, the enum, the foreign key &mdash; is a database behaviour and would not be tested by a mock. <b>Manual system tests</b> walked each role through its workflow in a browser, because several requirements concern what a user is shown. <b>Adversarial tests</b> attempted the specific attacks the design claims to prevent, because a control that has never been attacked is an assumption rather than a control.</p>
+
+    <h3>7.1.1 What Was Tested and What Was Not</h3>
+    <!--TAB:7.1:Test coverage by area-->
+    <table class="compact">
+        <tr><th style="width:26%;">Area</th><th style="width:18%;">Automated</th><th>Basis</th></tr>
+        <tr><td>Authentication and sessions</td><td>Yes &mdash; 15 cases</td><td>OTP lifecycle, uniform failure, revocation, password change</td></tr>
+        <tr><td>Remote polling workflow</td><td>Yes &mdash; 11 cases</td><td>Every legal transition and a sample of illegal ones</td></tr>
+        <tr><td>Ballot submission and secrecy</td><td>Yes &mdash; 8 cases</td><td>Core Rule, duplicate prevention, no choice in response</td></tr>
+        <tr><td>Database constraints</td><td>Yes &mdash; 6 cases</td><td>Unique indexes, partial index, composite foreign key</td></tr>
+        <tr><td>Authorization</td><td>Yes &mdash; 5 cases</td><td>Role matrix and cross-voter access</td></tr>
+        <tr><td>Election lifecycle</td><td>Yes &mdash; 4 cases</td><td>Forward-only transitions and expiry on closure</td></tr>
+        <tr><td>Frontend behaviour</td><td>No</td><td>Manual system tests; no component or end-to-end suite (Section 8.3)</td></tr>
+        <tr><td>Load and performance</td><td>No</td><td>Timing measured informally; no load generator used</td></tr>
+        <tr><td>Cryptographic correctness</td><td>Partly</td><td>Round-trip and tamper cases automated; no formal analysis</td></tr>
+    </table>
+    <p class="table-caption">Table 7.1: Test coverage by area</p>
+    <p>The last three rows are limitations stated in advance rather than omissions discovered later. A report that claimed full coverage would be less credible than one that names what it measured.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:7.2 Objectives of Testing-->
+    <h2>7.2 Objectives of Testing</h2>
+    <p>Six objectives were set before the first test was written. Each is stated as a claim the tests were designed to falsify.</p>
+    <!--TAB:7.2:Test objectives-->
+    <table class="compact">
+        <tr><th style="width:6%;">#</th><th style="width:44%;">Objective</th><th>Falsified if&hellip;</th></tr>
+        <tr><td>O1</td><td>No voter can cast two ballots in one election</td><td>Any sequence of concurrent submissions produces two sealed rows for one voter</td></tr>
+        <tr><td>O2</td><td>The ballot always matches the registered constituency</td><td>A voter assigned to another centre receives a candidate from that centre&rsquo;s constituency</td></tr>
+        <tr><td>O3</td><td>No response, log line or audit record reveals a candidate choice</td><td>Any captured output contains a candidate identifier in a context that links it to a voter</td></tr>
+        <tr><td>O4</td><td>No action is possible outside the declared role</td><td>Any endpoint returns success to a role not named in its allow-list</td></tr>
+        <tr><td>O5</td><td>No illegal state transition is accepted</td><td>Any request reaches a status not listed as reachable from its current status</td></tr>
+        <tr><td>O6</td><td>Revocation is immediate</td><td>A revoked session identifier still authenticates a request</td></tr>
+    </table>
+    <p class="table-caption">Table 7.2: Test objectives</p>
+
+    <h3>7.2.1 Test Environment</h3>
+    <!--TAB:7.3:Test environment-->
+    <table class="compact">
+        <tr><th style="width:28%;">Item</th><th>Configuration</th></tr>
+        <tr><td>Runner</td><td>Jest 29.7 with ts-jest, executed with <code>--runInBand</code></td></tr>
+        <tr><td>HTTP layer</td><td>Supertest against the Express application imported from <code>app.ts</code>; no port is bound</td></tr>
+        <tr><td>Database</td><td>PostgreSQL 16 in Docker, migrated and seeded before the run</td></tr>
+        <tr><td>Isolation</td><td>Suites run sequentially; each creates the rows it needs with unique identifiers and does not truncate tables</td></tr>
+        <tr><td>Authentication</td><td><code>helpers.ts</code> performs a real officer login and a real OTP flow to obtain tokens; nothing is stubbed</td></tr>
+        <tr><td>Clock</td><td>Real time; expiry cases use rows created with a past timestamp rather than a mocked clock</td></tr>
+    </table>
+    <p class="table-caption">Table 7.3: Test environment</p>
+    <p>Two decisions in this environment are worth defending. Running against a real database means the tests exercise the actual constraints; a mocked Prisma client would have passed every ballot test while leaving the unique index untested. And obtaining tokens through the real flows means the OTP and login code is itself exercised by every suite that needs an authenticated request, so a regression in authentication fails many tests rather than none.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:7.3 Types of Testing Applied-->
+    <h2>7.3 Types of Testing Applied</h2>
+    <!--TAB:7.4:Test types and how each was applied-->
+    <table class="compact">
+        <tr><th style="width:24%;">Type</th><th style="width:38%;">How it was applied</th><th>Evidence produced</th></tr>
+        <tr><td>Unit testing</td><td>Pure functions tested directly: the associated-data builder, the transition table, the eligibility computation</td><td>Fast checks inside the suites</td></tr>
+        <tr><td>Integration testing</td><td>Supertest against routes with a live database</td><td>49 automated cases</td></tr>
+        <tr><td>System testing</td><td>Four role journeys performed in the browser against the running application</td><td>Section 7.5</td></tr>
+        <tr><td>Functional testing</td><td>Each FR traced to at least one automated case or one manual step</td><td>Section 7.4</td></tr>
+        <tr><td>Negative testing</td><td>Every refusal path exercised: wrong role, wrong owner, illegal transition, expired challenge</td><td>Cases marked <i>rejects</i></td></tr>
+        <tr><td>Security testing</td><td>Adversarial attempts listed in Section 7.6</td><td>Section 7.6</td></tr>
+        <tr><td>Concurrency testing</td><td>Parallel submissions with <code>Promise.all</code> against one voter</td><td>Exactly one success observed</td></tr>
+        <tr><td>Performance testing</td><td>Timings recorded for the principal endpoints</td><td>Section 7.7</td></tr>
+        <tr><td>Usability testing</td><td>Five participants, four tasks, observations recorded</td><td>Section 7.8</td></tr>
+        <tr><td>Compatibility testing</td><td>Four browsers, two viewport widths</td><td>Section 7.9</td></tr>
+        <tr><td>Regression testing</td><td>Full suite re-run after every schema change and before every commit to <code>main</code></td><td>Suite remains green</td></tr>
+        <tr><td>Recovery testing</td><td>Process killed mid-run; database restarted; state re-read</td><td>Section 7.10</td></tr>
+    </table>
+    <p class="table-caption">Table 7.4: Test types and how each was applied</p>
+
+    <h3>7.3.1 The Concurrency Test in Detail</h3>
+    <p>Objective O1 is the one that a naive implementation passes by accident and a concurrent one fails. The test issues several submissions for the same voter with <code>Promise.all</code>, so they arrive at the server together, and then asserts that exactly one response is a success and that the ballot table holds exactly one row for that election and constituency.</p>
+    <pre class="code-block">// illustrative form of the concurrency case
+const results = await Promise.allSettled(
+  Array.from({ length: 4 }, () =&gt;
+    request(app).post('/api/simulator/controlled-ballot/submit')
+      .set('Authorization', `Bearer ${voterToken}`)
+      .send({ candidateId })),
+);
+const ok = results.filter(r =&gt; r.status === 'fulfilled' &amp;&amp; r.value.status === 201);
+expect(ok).toHaveLength(1);
+expect(await prisma.submittedBallot.count({ where: { electionId } })).toBe(1);</pre>
+    <p>The test is meaningful only because the application does not serialise requests artificially. If it had used a process-wide lock, the test would pass while proving nothing about the database constraint; the design deliberately relies on the constraint, so the test asserts the constraint&rsquo;s effect.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:7.4 Test Suites and Results-->
+    <h2>7.4 Test Suites and Results</h2>
+    <p>The suite is organised by domain, not by layer. Each file corresponds to a guarantee rather than to a source file, which is why the names read as claims.</p>
+
+    <h3>7.4.1 Suite Summary</h3>
+    <!--TAB:7.5:Test suites-->
+    <table class="compact">
+        <tr><th style="width:30%;">Suite</th><th style="width:12%;">Cases</th><th>Guarantee exercised</th></tr>
+        <tr><td><code>auth.test.ts</code></td><td>15</td><td>OTP issue and verify, single use, expiry, attempt cap, uniform failure, session revocation, password change</td></tr>
+        <tr><td><code>remote-polling.test.ts</code></td><td>11</td><td>Submit, own-constituency refusal, duplicate active refusal, claim, release, approve, reject with and without reason, withdraw, illegal transitions</td></tr>
+        <tr><td><code>ballots.test.ts</code></td><td>8</td><td>Ballot from registered constituency (the Core Rule), duplicate refusal, choice absent from response, sealing round trip, tamper detection</td></tr>
+        <tr><td><code>constraints.test.ts</code></td><td>6</td><td>Unique voter-election status, partial index on active requests, one assignment per request, composite candidate foreign key</td></tr>
+        <tr><td><code>authorization.test.ts</code></td><td>5</td><td>Role matrix, cross-voter access, missing token, revoked token, wrong role on a valid route</td></tr>
+        <tr><td><code>elections.test.ts</code></td><td>4</td><td>Forward-only lifecycle, refusal of repeats, expiry of open requests on closure, reconciliation refused before closure</td></tr>
+        <tr><td><b>Total</b></td><td><b>49</b></td><td>All passing at the time of writing</td></tr>
+    </table>
+    <p class="table-caption">Table 7.5: Test suites</p>
+
+    <h3>7.4.2 The Core Rule Test</h3>
+    <p>This case is reproduced because it is the single most important assertion in the project. It creates a voter registered in one constituency, approves a remote request for a centre in another, generates the ballot and asserts that every candidate belongs to the registered constituency.</p>
+    <pre class="code-block">it('serves the registered constituency even when approved elsewhere', async () =&gt; {
+  // voter registered in CHN-S, approved to attend MDU-C-01
+  const res = await request(app)
+    .get('/api/simulator/controlled-ballot')
+    .set('Authorization', `Bearer ${voterToken}`);
+
+  expect(res.status).toBe(200);
+  expect(res.body.constituency.code).toBe('CHN-S');
+  expect(res.body.remoteAssignment.pollingCentre.code).toBe('MDU-C-01');
+  for (const candidate of res.body.candidates)
+    expect(candidate.constituency.id).toBe(res.body.constituency.id);
+});</pre>
+    <p>The second assertion and the loop together state the Core Rule as an executable claim: the assignment points elsewhere while every candidate belongs to the voter&rsquo;s own constituency. A future change that passed the centre into ballot generation would fail this case, which is the purpose of writing it this way.</p>
+
+    <h3>7.4.3 Traceability from Requirements to Tests</h3>
+    <!--TAB:7.6:Requirements traced to tests-->
+    <table class="compact">
+        <tr><th style="width:18%;">Requirement</th><th style="width:42%;">Test or manual step</th><th>Result</th></tr>
+        <tr><td>FR-01 to FR-06 (authentication)</td><td><code>auth</code> suite, 15 cases</td><td>Pass</td></tr>
+        <tr><td>FR-07 to FR-12 (request workflow)</td><td><code>remote-polling</code> suite, 11 cases</td><td>Pass</td></tr>
+        <tr><td>FR-13 to FR-16 (ballot and submission)</td><td><code>ballots</code> suite, 8 cases</td><td>Pass</td></tr>
+        <tr><td>FR-17 to FR-20 (verification and reports)</td><td>System test ST-2, ST-3; <code>elections</code> suite</td><td>Pass</td></tr>
+        <tr><td>FR-21 to FR-26 (administration)</td><td><code>elections</code> suite; system test ST-4</td><td>Pass</td></tr>
+        <tr><td>FR-27 to FR-31 (audit and aggregation)</td><td><code>authorization</code> suite; manual audit inspection</td><td>Pass</td></tr>
+        <tr><td>BR-01 to BR-12 (business rules)</td><td><code>constraints</code> suite plus negative cases</td><td>Pass</td></tr>
+        <tr><td>NFR-01 to NFR-20</td><td>Mixed; see Section 7.11</td><td>18 pass, 2 partial</td></tr>
+    </table>
+    <p class="table-caption">Table 7.6: Requirements traced to tests</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:7.5 System Testing-->
+    <h2>7.5 System Testing</h2>
+    <p>Four journeys were performed end to end in a browser against the running application. Each is recorded with the steps taken and the observed outcome.</p>
+
+    <h3>7.5.1 ST-1 &mdash; Voter Applies and Votes Remotely</h3>
+    <!--TAB:7.7:System test ST-1-->
+    <table class="compact">
+        <tr><th style="width:6%;">#</th><th style="width:44%;">Step</th><th>Expected and observed</th></tr>
+        <tr><td>1</td><td>Enter <code>VA-0001</code> on the sign-in screen</td><td>Challenge created; code screen shown. Observed as expected</td></tr>
+        <tr><td>2</td><td>Enter the six-digit code from the server log</td><td>Session established; dashboard rendered. Observed as expected</td></tr>
+        <tr><td>3</td><td>Open the eligibility check</td><td>Four checks, all passed. Observed as expected</td></tr>
+        <tr><td>4</td><td>Submit a request for <code>MDU-C-01</code></td><td>Request created as PENDING; stepper advances to one step. Observed as expected</td></tr>
+        <tr><td>5</td><td>Sign in as <code>officer.verification</code>, claim the request</td><td>Status becomes UNDER_REVIEW; the claim control disappears. Observed as expected</td></tr>
+        <tr><td>6</td><td>Approve the request</td><td>Status becomes APPROVED; assignment created. Observed as expected</td></tr>
+        <tr><td>7</td><td>Return to the voter, open the controlled ballot</td><td>Chennai South candidates shown; MDU-C-01 named as the assigned centre. Observed as expected</td></tr>
+        <tr><td>8</td><td>Select a candidate and submit</td><td>Reference displayed; no choice echoed; dashboard shows ballot submitted. Observed as expected</td></tr>
+        <tr><td>9</td><td>Reload the ballot screen</td><td>&ldquo;Ballot already submitted&rdquo; refusal. Observed as expected</td></tr>
+    </table>
+    <p class="table-caption">Table 7.7: System test ST-1</p>
+
+    <h3>7.5.2 ST-2 &mdash; Refusal of an Own-Constituency Centre</h3>
+    <p>As <code>VA-0001</code>, a request was submitted for <code>CHN-S-01</code>, the voter&rsquo;s own home centre. The interface refused with: <i>choose a polling centre outside your registered constituency &mdash; your home centre is the default</i>. No row was created. The same attempt through the API directly returned 422 with the same sentence, confirming that the interface message was the server&rsquo;s message rather than a client-side check.</p>
+
+    <h3>7.5.3 ST-3 &mdash; Verification at a Centre</h3>
+    <p>As <code>officer.polling</code>, <code>VA-0001</code> was looked up. The screen reported the registered constituency, the assignment to <code>MDU-C-01</code> marked valid, and a ballot status of not yet submitted. After the ballot was submitted in ST-1, the same lookup reported the ballot as submitted, and the entitlement message changed accordingly. Nothing on the screen offered an action, and no request was written by the lookup.</p>
+
+    <h3>7.5.4 ST-4 &mdash; Closure, Reconciliation and Results</h3>
+    <p>As <code>admin.asha</code>, the election was closed. The open request in the database moved to EXPIRED and one audit record was written with the system actor. Reconciliation then returned a discrepancy of zero in both constituencies, and results attributed the single ballot to Chennai South even though it had been cast at a Madurai centre. An attempt to read reconciliation while the election was ACTIVE had earlier returned 409 with <i>election is not closed</i>.</p>
+
+    <h3>7.5.5 ST-5 &mdash; Auditor Access</h3>
+    <p>As <code>auditor.dev</code>, the audit trail was read with a filter on action. The record list showed the login, the submission, the claim, the approval, the submission of the ballot and the closure, each with an actor type and an entity reference. The auditor could not approve, claim or close anything; every such attempt returned 403.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:7.6 Security Testing-->
+    <h2>7.6 Security Testing</h2>
+    <p>Each row of the table below is an attempt to do something the design claims to prevent. The result column records what actually happened, not what was expected.</p>
+    <!--TAB:7.8:Adversarial attempts-->
+    <table class="compact">
+        <tr><th style="width:6%;">#</th><th style="width:40%;">Attempt</th><th>Result</th></tr>
+        <tr><td>A1</td><td>Submit a ballot twice for one voter</td><td>Second attempt refused with 409; one row in <code>SubmittedBallot</code></td></tr>
+        <tr><td>A2</td><td>Submit four ballots concurrently</td><td>Exactly one 201; three 409; one row</td></tr>
+        <tr><td>A3</td><td>Vote in a constituency other than the registered one by supplying a candidate identifier from elsewhere</td><td>Refused 422; the candidate is validated against the voter&rsquo;s registered constituency</td></tr>
+        <tr><td>A4</td><td>Read another voter&rsquo;s request by identifier</td><td>404, not 403; the response does not confirm the identifier exists</td></tr>
+        <tr><td>A5</td><td>Call an officer route with a voter token</td><td>403 from the role allow-list</td></tr>
+        <tr><td>A6</td><td>Reuse a session after revocation</td><td>401; the session row is re-read on every request</td></tr>
+        <tr><td>A7</td><td>Replay an OTP challenge</td><td>401; the challenge is marked consumed before the token is issued</td></tr>
+        <tr><td>A8</td><td>Guess an OTP more than five times</td><td>Attempt cap reached; further attempts refused without a comparison</td></tr>
+        <tr><td>A9</td><td>Enumerate officer usernames by timing</td><td>No measurable difference; the dummy hash equalises the comparison</td></tr>
+        <tr><td>A10</td><td>Read a candidate choice from any API response</td><td>None found; the submission response contains only a reference and a timestamp</td></tr>
+        <tr><td>A11</td><td>Read a candidate choice from the audit trail</td><td>None found; the audit record names the submission by reference, not by choice</td></tr>
+        <tr><td>A12</td><td>Alter a sealed ballot&rsquo;s ciphertext directly in the database</td><td>Verification fails; the GCM tag no longer authenticates</td></tr>
+        <tr><td>A13</td><td>Move a sealed choice from one ballot row to another</td><td>Verification fails; the associated data binds the reference, election and constituency</td></tr>
+        <tr><td>A14</td><td>Submit a malformed identifier to trigger a stack trace</td><td>400 from the validation schema; no trace in the response</td></tr>
+        <tr><td>A15</td><td>Exceed the JSON body limit</td><td>413 before any handler runs</td></tr>
+        <tr><td>A16</td><td>Approve a request that is still PENDING</td><td>409; the transition is not in the table</td></tr>
+        <tr><td>A17</td><td>Approve a request after the election has closed</td><td>409; a lifecycle guard runs before the transition</td></tr>
+        <tr><td>A18</td><td>Reject a request with an empty reason</td><td>400 from the validation schema</td></tr>
+        <tr><td>A19</td><td>Read the audit trail as an administrator</td><td>403; only the auditor and no other role may read it</td></tr>
+        <tr><td>A20</td><td>Read results as a voter</td><td><b>200 &mdash; a weakness, recorded as defect D-3</b></td></tr>
+    </table>
+    <p class="table-caption">Table 7.8: Adversarial attempts and results</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>7.6.1 The Two Findings That Matter</h3>
+    <p><b>A20 &mdash; the results endpoint is under-guarded.</b> The route <code>GET /simulator/elections/:id/results</code> requires authentication but declares no role. Any authenticated caller, including a voter, can read the aggregate results of a closed election. The exposure is bounded &mdash; results are only available after closure, and they are aggregates that contain no voter and no ballot reference &mdash; but the route is inconsistent with every other route in the system, all of which name their roles explicitly. It is recorded as defect D-3 and as the first item of future work.</p>
+    <p><b>A4 &mdash; the choice of 404 over 403 is deliberate.</b> When a voter requests another voter&rsquo;s record, the API returns 404 rather than 403. A 403 would confirm that the identifier exists; a 404 reveals nothing. This is not an oversight in error design and it is asserted by a test, so that a future refactor towards &ldquo;more correct&rdquo; status codes does not silently re-open the enumeration channel.</p>
+
+    <h3>7.6.2 What the Security Tests Do Not Establish</h3>
+    <p>It is important to state the boundary of the evidence. The tests establish that the application&rsquo;s own controls behave as specified. They do not establish that the system is secure against an attacker with database access, because no system with a single symmetric key and no hardware isolation can be. An attacker who can read the <code>SubmittedBallot</code> table and also read the environment can decrypt every ballot. What the design does achieve is that such an attacker must hold both the database and the key, and that the same attacker cannot use the database alone to learn which voter cast which ballot, because the link does not exist there. That is a meaningful reduction in exposure, and it is a different claim from &ldquo;the ballot is secret&rdquo;, which is why Section 8.3 states the limitation plainly.</p>
+
+    <!--TOC:sub:7.7 Performance Testing-->
+    <h2>7.7 Performance Testing</h2>
+    <p>No load generator was used. Timings were recorded with sequential requests against the seeded database on the development machine, which is enough to identify an order of magnitude and not enough to characterise the system under load. The results are reported with that caveat.</p>
+    <!--TAB:7.9:Observed response times-->
+    <table class="compact">
+        <tr><th style="width:38%;">Endpoint</th><th style="width:16%;">Observed</th><th>Dominant cost</th></tr>
+        <tr><td><code>GET /api/health</code></td><td>3&ndash;6 ms</td><td>One <code>SELECT 1</code></td></tr>
+        <tr><td><code>POST /auth/officer/login</code></td><td>240&ndash;290 ms</td><td>bcrypt comparison at cost 12</td></tr>
+        <tr><td><code>POST /auth/voter/otp</code></td><td>250&ndash;300 ms</td><td>bcrypt hash of the six-digit code</td></tr>
+        <tr><td><code>POST /auth/voter/otp/verify</code></td><td>250&ndash;300 ms</td><td>bcrypt comparison</td></tr>
+        <tr><td><code>GET /remote-polling/dashboard</code></td><td>12&ndash;25 ms</td><td>Four queries composed</td></tr>
+        <tr><td><code>POST /remote-polling/requests</code></td><td>15&ndash;30 ms</td><td>Inserts plus audit write</td></tr>
+        <tr><td><code>POST .../approve</code></td><td>18&ndash;35 ms</td><td>Transaction with assignment insert</td></tr>
+        <tr><td><code>GET /simulator/controlled-ballot</code></td><td>10&ndash;20 ms</td><td>Candidate query on an index</td></tr>
+        <tr><td><code>POST .../controlled-ballot/submit</code></td><td>20&ndash;40 ms</td><td>AES-GCM seal plus transaction</td></tr>
+        <tr><td><code>GET .../reconciliation</code></td><td>25&ndash;45 ms</td><td>Two grouped counts</td></tr>
+        <tr><td><code>GET .../results</code></td><td>30&ndash;60 ms</td><td>Decrypting every ballot</td></tr>
+    </table>
+    <p class="table-caption">Table 7.9: Observed response times (development machine, sequential requests)</p>
+    <p>Two conclusions follow from these figures. First, authentication dominates: a login costs roughly twenty times a business request, which is the intended consequence of choosing a deliberately slow hash. Second, the cryptographic work is not a bottleneck; sealing and opening a ballot is cheaper than the database round trip that surrounds it. The figure that would matter at scale is the results endpoint, which decrypts every ballot in the election and therefore grows linearly with turnout; at the scale of this project, with a single ballot, it is invisible.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:7.8 User Acceptance Testing-->
+    <h2>7.8 User Acceptance Testing</h2>
+    <p>Five participants took part: two classmates with no knowledge of the design, two classmates who had read the abstract, and one faculty member. Each was given four tasks and asked to complete them without assistance. The observer recorded where they hesitated rather than what they said.</p>
+    <!--TAB:7.10:Usability tasks and observations-->
+    <table class="compact">
+        <tr><th style="width:6%;">#</th><th style="width:34%;">Task</th><th>Observation</th></tr>
+        <tr><td>U1</td><td>Sign in and state your registered constituency</td><td>All five succeeded. Three read the constituency from the dashboard card rather than the profile, which confirms the card is the right place for it</td></tr>
+        <tr><td>U2</td><td>Apply for a centre in another constituency</td><td>Four of five succeeded first time. One selected the home centre and was refused; the refusal sentence told them what to do and they completed it on the second attempt</td></tr>
+        <tr><td>U3</td><td>Find out whether the request was approved</td><td>All five succeeded. Two used the stepper rather than the status badge</td></tr>
+        <tr><td>U4</td><td>Vote and state which constituency the ballot belonged to</td><td>All five succeeded; four of five stated the registered constituency and one said &ldquo;Madurai&rdquo; before correcting themselves after reading the note</td></tr>
+    </table>
+    <p class="table-caption">Table 7.10: Usability tasks and observations</p>
+    <p>The fourth task produced the only substantive finding. One participant initially believed the ballot belonged to the centre they had attended, which is precisely the misunderstanding the system exists to prevent. They corrected themselves from the sentence on the ballot screen, which suggests the explanatory text is doing its job but could be more prominent. That observation became change UAT-1: the constituency line on the ballot screen was moved above the candidate list and set in bold, which is the layout shown in Figure 4.11.</p>
+
+    <h3>7.8.1 Acceptance Criteria</h3>
+    <!--TAB:7.11:Acceptance criteria and outcome-->
+    <table class="compact">
+        <tr><th style="width:6%;">#</th><th style="width:52%;">Criterion</th><th>Outcome</th></tr>
+        <tr><td>AC-1</td><td>A voter can complete the whole journey without assistance</td><td>Met by three of five unaided; two after one refusal message</td></tr>
+        <tr><td>AC-2</td><td>The ballot screen states the registered constituency</td><td>Met, and strengthened after UAT-1</td></tr>
+        <tr><td>AC-3</td><td>Every refusal names a remedy</td><td>Met for domain errors</td></tr>
+        <tr><td>AC-4</td><td>An officer can decide a request in under thirty seconds</td><td>Met; median observed 18 s over four decisions</td></tr>
+        <tr><td>AC-5</td><td>An auditor can find a specific transition in the trail</td><td>Met using the action filter</td></tr>
+        <tr><td>AC-6</td><td>Results are unavailable before closure</td><td>Met; 409 observed</td></tr>
+    </table>
+    <p class="table-caption">Table 7.11: Acceptance criteria and outcome</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:7.9 Browser Compatibility-->
+    <h2>7.9 Browser Compatibility Testing</h2>
+    <p>The application was opened in four browsers at two widths. Because the interface uses no feature that requires a polyfill, the expectation was full compatibility; the test exists to confirm that expectation rather than to discover it.</p>
+    <!--TAB:7.12:Browser compatibility matrix-->
+    <table class="compact">
+        <tr><th style="width:24%;">Browser</th><th style="width:14%;">Version</th><th style="width:20%;">1280 px</th><th>375 px</th></tr>
+        <tr><td>Google Chrome</td><td>131</td><td>Pass</td><td>Pass; tables scroll horizontally</td></tr>
+        <tr><td>Microsoft Edge</td><td>131</td><td>Pass</td><td>Pass</td></tr>
+        <tr><td>Mozilla Firefox</td><td>133</td><td>Pass</td><td>Pass</td></tr>
+        <tr><td>Safari</td><td>17.6</td><td>Pass</td><td>Pass</td></tr>
+    </table>
+    <p class="table-caption">Table 7.12: Browser compatibility matrix</p>
+    <p>Two issues were found and fixed. On Safari the sticky navigation bar lost its background because the backdrop filter used a prefix that Tailwind emits only for WebKit; the class was replaced with a plain background. On a 375-pixel viewport the review queue table overflowed the page rather than scrolling within its container; the wrapper was given an explicit overflow rule. Both were cosmetic, and both were recorded as defects D-5 and D-6.</p>
+
+    <!--TOC:sub:7.10 Recovery Testing-->
+    <h2>7.10 Recovery Testing</h2>
+    <p>Four interruption scenarios were exercised. The purpose is to confirm that the transaction boundaries described in Chapter 6 mean what they claim.</p>
+    <!--TAB:7.13:Recovery scenarios-->
+    <table class="compact">
+        <tr><th style="width:6%;">#</th><th style="width:38%;">Scenario</th><th>Outcome</th></tr>
+        <tr><td>R1</td><td>Backend process killed during the submission transaction</td><td>On restart, no ballot row and no consumed identity; the voter could vote again</td></tr>
+        <tr><td>R2</td><td>PostgreSQL container stopped and restarted</td><td>Prisma reconnected; the next request succeeded without a process restart</td></tr>
+        <tr><td>R3</td><td>Duplicate submission attempted while the first was in flight</td><td>One committed, one refused; no partial state</td></tr>
+        <tr><td>R4</td><td>Election closed while a request was being approved</td><td>Closure won; the approval was refused with 409 on the lifecycle guard</td></tr>
+    </table>
+    <p class="table-caption">Table 7.13: Recovery scenarios</p>
+    <p>R1 is the scenario that justifies placing both writes in one transaction. Had the identity been marked outside the transaction, a killed process would have left a voter recorded as having voted with no ballot stored &mdash; a state from which the voter cannot recover without an administrator. R4 is the scenario that justifies checking the lifecycle inside the approval rather than only at the start of the request.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:7.11 Defects Found and Fixed-->
+    <h2>7.11 Defects Found and Fixed</h2>
+    <p>Thirteen defects were recorded during testing. Six were fixed, one was fixed by design change, four were accepted as limitations and two remain open. Recording the accepted and the open ones is part of the evidence, not an admission appended reluctantly.</p>
+    <!--TAB:7.14:Defect register-->
+    <table class="tiny">
+        <tr><th style="width:7%;">ID</th><th style="width:12%;">Found by</th><th style="width:38%;">Description</th><th style="width:10%;">Severity</th><th>Status</th></tr>
+        <tr><td>D-1</td><td><code>ballots</code> suite</td><td>Duplicate submission returned 500 rather than 409 because the P2002 code was not translated</td><td>High</td><td>Fixed</td></tr>
+        <tr><td>D-2</td><td><code>authorization</code> suite</td><td>Claim route accepted a Polling Centre Officer because the allow-list was copied from the queue route</td><td>High</td><td>Fixed</td></tr>
+        <tr><td>D-3</td><td>Security test A20</td><td>Results route authenticates but declares no role</td><td>Medium</td><td><b>Open</b></td></tr>
+        <tr><td>D-4</td><td><code>remote-polling</code> suite</td><td>Releasing a request cleared the reviewer but left the reviewed timestamp</td><td>Low</td><td>Fixed</td></tr>
+        <tr><td>D-5</td><td>Compatibility</td><td>Safari sticky navigation lost its background</td><td>Low</td><td>Fixed</td></tr>
+        <tr><td>D-6</td><td>Compatibility</td><td>Review queue table overflowed at 375 px</td><td>Low</td><td>Fixed</td></tr>
+        <tr><td>D-7</td><td>Recovery R1</td><td>Identity was marked before the ballot insert; a killed process stranded the voter</td><td>Critical</td><td>Fixed by moving both writes into one transaction</td></tr>
+        <tr><td>D-8</td><td><code>elections</code> suite</td><td>Closing an election left APPROVED requests in place rather than expiring them</td><td>High</td><td>Fixed</td></tr>
+        <tr><td>D-9</td><td>Manual inspection</td><td>Audit records were written before the transition committed, so a failed transition still logged</td><td>Medium</td><td><b>Open</b> (Section 8.3)</td></tr>
+        <tr><td>D-10</td><td>UAT U2</td><td>Centre list did not show the constituency, so the refusal was the first indication of the rule</td><td>Medium</td><td>Fixed</td></tr>
+        <tr><td>D-11</td><td>Code review</td><td>Logger received a voter object during OTP issue</td><td>High</td><td>Fixed; redaction list extended</td></tr>
+        <tr><td>D-12</td><td>Design review</td><td>First schema draft gave the assignment a constituency column</td><td>Critical</td><td>Fixed by removing the column (Section 4.5.2)</td></tr>
+        <tr><td>D-13</td><td>Load observation</td><td>Rate limiter is in-process, so a second instance would double the effective limit</td><td>Medium</td><td>Accepted limitation</td></tr>
+    </table>
+    <p class="table-caption">Table 7.14: Defect register</p>
+    <p>D-12 is the most instructive entry. The defect was found before any code was written, in a design review of the schema, and it was found by asking what a developer would naturally do when implementing approval: the assignment needs a centre, the centre has a constituency, so adding a constituency to the assignment would feel like denormalisation for convenience. Removing the column made the convenience unavailable. The remaining defects are ordinary; this one was the design almost going wrong.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:7.12 Test Summary-->
+    <h2>7.12 Testing Summary</h2>
+    <!--TAB:7.15:Testing summary-->
+    <table class="compact">
+        <tr><th style="width:44%;">Measure</th><th>Value</th></tr>
+        <tr><td>Automated test cases</td><td>49 across 6 suites</td></tr>
+        <tr><td>Cases passing</td><td>49</td></tr>
+        <tr><td>System test journeys</td><td>5 (ST-1 to ST-5)</td></tr>
+        <tr><td>Adversarial attempts</td><td>20 (A1 to A20)</td></tr>
+        <tr><td>Attempts successfully prevented</td><td>19 of 20</td></tr>
+        <tr><td>Recovery scenarios</td><td>4 (R1 to R4)</td></tr>
+        <tr><td>Defects recorded</td><td>13</td></tr>
+        <tr><td>Defects fixed</td><td>10</td></tr>
+        <tr><td>Defects open</td><td>2 (D-3, D-9)</td></tr>
+        <tr><td>Limitations accepted</td><td>1 (D-13)</td></tr>
+        <tr><td>Criteria met</td><td>6 of 6</td></tr>
+    </table>
+    <p class="table-caption">Table 7.15: Testing summary</p>
+    <p>Against the six objectives, the outcome is as follows. O1 is met and demonstrated under concurrency. O2 is met, asserted by the Core Rule case and by the reconciliation of a ballot cast at a remote centre. O3 is met within the application&rsquo;s own outputs; no response, log line or audit record was found to carry a choice, though the limitation stated in 7.6.2 applies to an attacker with database and key access. O4 is met for every route except the results route, which is defect D-3. O5 is met; the transition table refused every illegal attempt in the request and in the lifecycle. O6 is met; a revoked session failed on the next request.</p>
+    <p>What the testing does not establish should be repeated once more, because it is the honest boundary of the chapter. There is no frontend test suite, so a regression in a React component would be caught only by manual inspection. There is no load test, so the performance figures in Section 7.7 describe one user at a time. And there is no formal verification of the transition table, only an exhaustive table and a sample of negative cases. These three gaps are carried into Section 8.3 rather than left implied.</p>
+    <div class="page-number">{{PN}}</div>
+</div>

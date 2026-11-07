@@ -1,0 +1,306 @@
+<div class="page">
+    <!--TOC:chapter:CHAPTER 5: SOFTWARE AND HARDWARE REQUIREMENTS-->
+    <h1 class="chapter-title">CHAPTER 5<br>SOFTWARE AND HARDWARE<br>REQUIREMENTS</h1>
+
+    <!--TOC:sub:5.1 Software Requirements-->
+    <h2>5.1 Software Requirements</h2>
+    <p>This chapter records what the system needs in order to run, and why each item was chosen. Versions are the ones pinned in <code>backend/package.json</code> and <code>frontend/package.json</code> at the time of writing, so the table can be checked against the repository rather than trusted.</p>
+
+    <h3>5.1.1 Runtime and Platform Requirements</h3>
+    <!--TAB:5.1:Runtime and platform requirements-->
+    <table class="compact">
+        <tr><th style="width:22%;">Component</th><th style="width:22%;">Version required</th><th>Notes</th></tr>
+        <tr><td>Operating system</td><td>Windows 10/11, macOS 12+, or Linux</td><td>Development was carried out on Windows with WSL available; nothing in the stack is platform-specific</td></tr>
+        <tr><td>Node.js</td><td>20 LTS or later</td><td>The project was built and tested on Node 22. Required for the built-in <code>node:crypto</code> used for sealing</td></tr>
+        <tr><td>npm</td><td>10 or later</td><td>Ships with Node 20+; used for both workspaces</td></tr>
+        <tr><td>PostgreSQL</td><td>16</td><td>Runs in Docker as <code>postgres:16-bookworm</code>; required for partial unique indexes and enum semantics</td></tr>
+        <tr><td>Docker Desktop / Engine</td><td>24 or later, with Compose v2</td><td>Only the database is containerised</td></tr>
+        <tr><td>Git</td><td>2.40 or later</td><td>Source control; hooks are not used</td></tr>
+        <tr><td>Web browser</td><td>Chrome 120+, Edge 120+, Firefox 121+, Safari 17+</td><td>Required for the Vite development server and for the compatibility testing in Section 7.7</td></tr>
+    </table>
+    <p class="table-caption">Table 5.1: Runtime and platform requirements</p>
+
+    <h3>5.1.2 Development Tools</h3>
+    <!--TAB:5.2:Development tools-->
+    <table class="compact">
+        <tr><th style="width:24%;">Tool</th><th style="width:18%;">Version</th><th>Purpose in this project</th></tr>
+        <tr><td>Visual Studio Code</td><td>1.9x</td><td>Editor; extensions for ESLint, Prisma and Tailwind were used</td></tr>
+        <tr><td>TypeScript compiler</td><td>5.7.2</td><td>Type checking; <code>tsc --noEmit</code> is the gate before every commit</td></tr>
+        <tr><td>tsx</td><td>4.19</td><td>Watch-mode TypeScript runner for the backend; it removes the need for a build step in development</td></tr>
+        <tr><td>Prisma CLI</td><td>6.2.1</td><td>Schema management, migration generation, client generation and seeding</td></tr>
+        <tr><td>Prisma Studio</td><td>6.2.1</td><td>Table browser used during debugging; never used to modify seeded data by hand</td></tr>
+        <tr><td>Jest</td><td>29.7.0</td><td>Test runner; <code>--runInBand</code> because the suites share one database</td></tr>
+        <tr><td>ts-jest</td><td>29.2.5</td><td>TypeScript transform for Jest</td></tr>
+        <tr><td>Supertest</td><td>7.0.0</td><td>HTTP assertions against the Express application without binding a port</td></tr>
+        <tr><td>Vite</td><td>6.0.7</td><td>Frontend dev server with hot module replacement, and the production build</td></tr>
+        <tr><td>curl / REST client</td><td>&mdash;</td><td>Exploratory calls during API development</td></tr>
+    </table>
+    <p class="table-caption">Table 5.2: Development tools</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>5.1.3 Software Requirements by Role</h3>
+    <p>The system has three deployment roles: a database host, an application host and a client device. The requirements differ because the client only needs a browser while the servers need runtimes.</p>
+    <!--TAB:5.3:Software requirements by deployment role-->
+    <table class="compact">
+        <tr><th style="width:18%;">Role</th><th style="width:40%;">Software</th><th>Configuration</th></tr>
+        <tr><td>Database host</td><td>Docker Engine with Compose; PostgreSQL 16 image</td><td>Named volume <code>vote_anywhere_pgdata</code>; port 5432 published; <code>pg_isready</code> health check every 5 s with 10 retries</td></tr>
+        <tr><td>Application host</td><td>Node.js 20+, the built backend, the built frontend static files</td><td><code>PORT=4000</code>; <code>DATABASE_URL</code>; <code>JWT_SECRET</code>; <code>BALLOT_ENCRYPTION_KEY</code> as 64 hex characters</td></tr>
+        <tr><td>Client device</td><td>Any current browser; no plug-ins, no Java, no client installation</td><td>Reaches the frontend over HTTP or HTTPS; the frontend reaches the API at the same origin</td></tr>
+    </table>
+    <p class="table-caption">Table 5.3: Software requirements by deployment role</p>
+
+    <h3>5.1.4 Environment Variables</h3>
+    <!--TAB:5.4:Environment variables-->
+    <table class="compact">
+        <tr><th style="width:26%;">Variable</th><th style="width:14%;">Required</th><th>Purpose and validation</th></tr>
+        <tr><td><code>NODE_ENV</code></td><td>No</td><td><code>development</code> by default; controls whether the mock OTP is echoed in development responses</td></tr>
+        <tr><td><code>PORT</code></td><td>No</td><td>Defaults to 4000</td></tr>
+        <tr><td><code>DATABASE_URL</code></td><td>Yes</td><td>PostgreSQL connection string; parsed by Zod at start-up and the process exits if absent</td></tr>
+        <tr><td><code>JWT_SECRET</code></td><td>Yes</td><td>Signing secret; a placeholder in <code>.env.example</code> and never committed as a real value</td></tr>
+        <tr><td><code>BALLOT_ENCRYPTION_KEY</code></td><td>Yes</td><td>Exactly 64 hexadecimal characters; validated at start-up so a malformed key fails immediately rather than at the first ballot</td></tr>
+        <tr><td><code>SEED_OFFICER_PASSWORD</code></td><td>Seed only</td><td>Plaintext consumed by the seed to bcrypt-hash the four fictional officer accounts; never stored and never logged</td></tr>
+        <tr><td><code>VITE_API_BASE_URL</code></td><td>Frontend only</td><td>Browser-visible API base; <code>http://localhost:4000/api</code> in development</td></tr>
+    </table>
+    <p class="table-caption">Table 5.4: Environment variables</p>
+    <p>Validating configuration at start-up rather than at first use is a small decision with a large effect. A missing encryption key discovered when the first voter submits a ballot is an incident; discovered when the process starts, it is a line in the terminal. The configuration module therefore parses the environment with a Zod schema and throws before the HTTP server binds a port.</p>
+
+    <h3>5.1.5 Minimum and Recommended Development Machines</h3>
+    <!--TAB:5.5:Development machine requirements-->
+    <table class="compact">
+        <tr><th style="width:30%;">Resource</th><th style="width:30%;">Minimum</th><th>Recommended</th></tr>
+        <tr><td>Processor</td><td>Dual-core 2.0 GHz</td><td>Quad-core 2.5 GHz or better</td></tr>
+        <tr><td>Memory</td><td>4 GB</td><td>8 GB or more (Docker, Node and the editor together)</td></tr>
+        <tr><td>Free disk</td><td>4 GB</td><td>10 GB (node_modules alone is roughly 400 MB across both workspaces)</td></tr>
+        <tr><td>Network</td><td>Required once, for dependency installation</td><td>Broadband; no network is required at run time</td></tr>
+    </table>
+    <p class="table-caption">Table 5.5: Development machine requirements</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:5.2 Hardware Requirements-->
+    <h2>5.2 Hardware Requirements</h2>
+    <p>The hardware requirements for a simulator are modest, and stating them plainly is more honest than inventing a data-centre specification. Two environments are described: the machine used for development and testing, and the class of machine that would run the demonstration.</p>
+
+    <h3>5.2.1 Development and Test Environment</h3>
+    <!--TAB:5.6:Hardware used for development-->
+    <table class="compact">
+        <tr><th style="width:26%;">Component</th><th>Specification</th></tr>
+        <tr><td>Processor</td><td>Intel Core i5, four cores, 2.4 GHz</td></tr>
+        <tr><td>Memory</td><td>8 GB RAM</td></tr>
+        <tr><td>Storage</td><td>256 GB solid-state drive</td></tr>
+        <tr><td>Display</td><td>1920 &times; 1080</td></tr>
+        <tr><td>Network</td><td>Home broadband; no external services are called at run time</td></tr>
+        <tr><td>Peripherals</td><td>Keyboard and mouse; no biometric or smart-card reader, because identity verification is simulated</td></tr>
+    </table>
+    <p class="table-caption">Table 5.6: Hardware used for development and testing</p>
+
+    <h3>5.2.2 Server-Side Requirements for Demonstration</h3>
+    <!--TAB:5.7:Server hardware for demonstration-->
+    <table class="compact">
+        <tr><th style="width:26%;">Resource</th><th style="width:24%;">Minimum</th><th>Notes</th></tr>
+        <tr><td>CPU</td><td>2 vCPU</td><td>The workload is dominated by bcrypt (deliberately slow) and AES-GCM (negligible)</td></tr>
+        <tr><td>Memory</td><td>2 GB</td><td>Node process plus PostgreSQL; bcrypt hashing is the peak consumer during login bursts</td></tr>
+        <tr><td>Storage</td><td>20 GB</td><td>Database growth is small: a ballot row is roughly 300 bytes</td></tr>
+        <tr><td>Network</td><td>10 Mbps</td><td>Requests are small JSON documents under 1 kB</td></tr>
+        <tr><td>Availability</td><td>Single node</td><td>No clustering; the in-process rate limiter is explicitly not shared between instances (Section 8.3)</td></tr>
+    </table>
+    <p class="table-caption">Table 5.7: Server hardware for demonstration</p>
+
+    <h3>5.2.3 Client-Side Requirements</h3>
+    <p>The client needs nothing beyond a browser. The built frontend is a static bundle of roughly 300 kB before compression, and the largest view renders a table of at most a few dozen rows. A device with 2 GB of memory is sufficient. No camera, no fingerprint reader, no smart card and no trusted platform module is required, and this is a design consequence rather than a limitation: the system simulates identity verification rather than performing it, so the hardware that would carry the trust is deliberately out of scope.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:5.3 Languages Used-->
+    <h2>5.3 Languages Used</h2>
+    <p>Four languages appear in the repository: TypeScript for all application code, SQL inside migrations, CSS through Tailwind, and Markdown for documentation. Each is used where it is strongest.</p>
+
+    <h3>5.3.1 TypeScript</h3>
+    <p>TypeScript 5.7 is used for the backend, the frontend and the tests. The decisive reason is not developer convenience but the class of error it removes. In a system whose central property is a boundary that must not be crossed, a compiler that knows the shape of a <code>SubmittedBallot</code> and refuses to accept a voter identifier in the function that creates one is worth more than any amount of prose. Three specific uses of the type system matter:</p>
+    <p><b>Discriminated session types.</b> The session payload is a union of an officer session, a voter session and a system actor, distinguished by <code>actorType</code>. A handler that reads <code>officerId</code> must first narrow to the officer variant, so a voter session cannot be read as an officer session by accident.</p>
+    <p><b>Literal union statuses.</b> The seven request statuses are a union of string literals generated from the Prisma enum. The transition table is typed as a record from every status to an array of statuses, so an illegal target cannot be written without a type error.</p>
+    <p><b>Function signatures as policy.</b> <code>generateBallot(voter: Voter)</code> and <code>sealChoice(choice: string, ballotReference: string, electionId: string, constituencyId: string)</code> are both signatures in which the Core Rule is encoded. The first takes a whole <code>Voter</code> object rather than a loose constituency identifier, which is deliberate: a caller cannot supply a constituency at all, even by mistake. Widening either signature is a visible act in a code review.</p>
+
+    <h3>5.3.2 SQL</h3>
+    <p>SQL appears in two places. Migrations are generated by Prisma and reviewed, with one statement hand-written: the partial unique index. Queries are written in Prisma&rsquo;s query language rather than raw SQL, except for aggregate counts, which use Prisma&rsquo;s <code>groupBy</code> and <code>count</code>. No string concatenation reaches the database driver, so the injection class of defect is absent by construction rather than by sanitisation.</p>
+
+    <h3>5.3.3 CSS and Tailwind</h3>
+    <p>Tailwind CSS 4 is used through its Vite plug-in. Utility classes are preferred over component stylesheets because the interface is small and the design tokens are few: a slate-and-indigo palette, a five-step type scale and a single spacing rhythm. Where a repeated pattern exists &mdash; a card, a badge, a stepper &mdash; it is a React component with a fixed set of classes rather than a stylesheet rule, so the repetition is expressed in one place in TypeScript.</p>
+
+    <h3>5.3.4 Language Choices Rejected</h3>
+    <!--TAB:5.8:Language choices considered-->
+    <table class="compact">
+        <tr><th style="width:20%;">Language</th><th style="width:34%;">Why it was considered</th><th>Why it was not used</th></tr>
+        <tr><td>Python / Django</td><td>Fast to build CRUD; strong admin scaffolding</td><td>Two runtimes would be needed, since the frontend ecosystem is JavaScript; the type-narrowing arguments above are weaker</td></tr>
+        <tr><td>Java / Spring</td><td>Strong typing, mature transaction support</td><td>Disproportionate ceremony for nine modules and a single developer; slower iteration</td></tr>
+        <tr><td>Go</td><td>Simple deployment, excellent concurrency</td><td>Weaker ecosystem for the relational modelling and frontend sharing this project needs</td></tr>
+        <tr><td>Solidity</td><td>Would allow a &ldquo;blockchain&rdquo; narrative</td><td>Rejected on principle: the project simulates a process and does not need distributed consensus, and claiming immutability without the operational apparatus would be misleading</td></tr>
+    </table>
+    <p class="table-caption">Table 5.8: Language choices considered</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:5.4 Frameworks and Libraries-->
+    <h2>5.4 Frameworks and Libraries</h2>
+    <p>Every dependency is listed with its version and with the specific reason it is present. A dependency that cannot be justified in one sentence was not added.</p>
+
+    <h3>5.4.1 Backend Dependencies</h3>
+    <!--TAB:5.9:Backend dependencies-->
+    <table class="compact">
+        <tr><th style="width:22%;">Package</th><th style="width:12%;">Version</th><th>Purpose and justification</th></tr>
+        <tr><td><code>express</code></td><td>^4.21.2</td><td>HTTP routing and middleware composition. Version 4 rather than 5 for middleware ecosystem stability</td></tr>
+        <tr><td><code>@prisma/client</code></td><td>^6.2.1</td><td>Typed database access; generates a type per model, which is what makes the signature arguments in 5.3.1 possible</td></tr>
+        <tr><td><code>prisma</code></td><td>^6.2.1</td><td>Schema, migrations and seeding (development dependency)</td></tr>
+        <tr><td><code>zod</code></td><td>^4.6.7</td><td>Runtime validation of every request body, query and environment variable</td></tr>
+        <tr><td><code>jsonwebtoken</code></td><td>^9.0.2</td><td>Signing and verifying the session token; the <code>jti</code> claim carries the session identifier</td></tr>
+        <tr><td><code>bcrypt</code></td><td>^5.1.1</td><td>Password and OTP hashing at cost 12; deliberately slow</td></tr>
+        <tr><td><code>helmet</code></td><td>^8.0.0</td><td>Response security headers</td></tr>
+        <tr><td><code>cors</code></td><td>^2.8.5</td><td>Permits the development frontend origin; in production the proxy makes it unnecessary</td></tr>
+        <tr><td><code>express-rate-limit</code></td><td>^7.5.0</td><td>Attempt bounds on login, OTP issue, OTP verify and password change</td></tr>
+        <tr><td><code>dotenv</code></td><td>^16.4.7</td><td>Loads <code>.env</code> in development; the platforms in production inject variables directly</td></tr>
+        <tr><td><code>typescript</code></td><td>^5.7.2</td><td>The language itself (development dependency)</td></tr>
+        <tr><td><code>tsx</code></td><td>^4.19.2</td><td>Watch-mode runner; no build step during development</td></tr>
+        <tr><td><code>jest</code> / <code>ts-jest</code></td><td>^29.7.0 / ^29.2.5</td><td>Test runner and TypeScript transform</td></tr>
+        <tr><td><code>supertest</code></td><td>^7.0.0</td><td>HTTP assertions against the in-process application</td></tr>
+    </table>
+    <p class="table-caption">Table 5.9: Backend dependencies</p>
+
+    <h3>5.4.2 Frontend Dependencies</h3>
+    <!--TAB:5.10:Frontend dependencies-->
+    <table class="compact">
+        <tr><th style="width:22%;">Package</th><th style="width:12%;">Version</th><th>Purpose and justification</th></tr>
+        <tr><td><code>react</code> / <code>react-dom</code></td><td>^19.0.0</td><td>Component model and rendering</td></tr>
+        <tr><td><code>react-router-dom</code></td><td>^7.1.1</td><td>Route table and the role-guard wrapper</td></tr>
+        <tr><td><code>axios</code></td><td>^1.7.9</td><td>One configured client with an interceptor that attaches the bearer token</td></tr>
+        <tr><td><code>react-hook-form</code></td><td>^7.54.2</td><td>Form state without re-rendering on every keystroke</td></tr>
+        <tr><td><code>@hookform/resolvers</code></td><td>^5.9.2</td><td>Connects the Zod schemas to the forms so the client mirrors the server&rsquo;s rules</td></tr>
+        <tr><td><code>zod</code></td><td>^4.6.7</td><td>The same validation library as the server, so the rules cannot drift</td></tr>
+        <tr><td><code>lucide-react</code></td><td>^0.468.0</td><td>Icon set; avoids hand-drawn SVG</td></tr>
+        <tr><td><code>tailwindcss</code> / <code>@tailwindcss/vite</code></td><td>^4.0.0</td><td>Utility styling and the Vite plug-in</td></tr>
+        <tr><td><code>vite</code></td><td>^6.0.7</td><td>Development server, proxy and production build</td></tr>
+        <tr><td><code>typescript</code></td><td>^5.7.2</td><td>The language</td></tr>
+    </table>
+    <p class="table-caption">Table 5.10: Frontend dependencies</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>5.4.3 Libraries Deliberately Not Used</h3>
+    <p>What is absent is as informative as what is present, particularly in a project about cryptographic handling and state.</p>
+    <!--TAB:5.11:Libraries considered and rejected-->
+    <table class="compact">
+        <tr><th style="width:24%;">Category</th><th style="width:30%;">Candidates</th><th>Reason for rejection</th></tr>
+        <tr><td>State management</td><td>Redux, Zustand, MobX</td><td>Three portals, each with a handful of screens; the server is the source of truth and React Query-like caching was not needed</td></tr>
+        <tr><td>ORM alternative</td><td>TypeORM, Drizzle, Knex</td><td>Prisma&rsquo;s generated types are the mechanism behind several design guarantees; swapping would lose them</td></tr>
+        <tr><td>Cryptography wrapper</td><td>node-forge, tweetnacl, crypto-js</td><td>All primitives are available in <code>node:crypto</code>; adding a second implementation would widen the audit surface</td></tr>
+        <tr><td>Testing library for React</td><td>Testing Library, Vitest, Playwright</td><td>The tests that matter are the six backend suites; UI behaviour was verified manually (Chapter 7). Playwright would be the first addition if the project continued</td></tr>
+        <tr><td>Logging framework</td><td>winston, pino</td><td>A single structured logger with a redaction list is enough at this size and avoids a dependency whose defaults must be audited</td></tr>
+        <tr><td>Migration library</td><td>Flyway, Knex migrations</td><td>Prisma migrations are adequate, with one hand-written index documented in Section 4.7.9</td></tr>
+        <tr><td>UI component kit</td><td>MUI, Ant Design, shadcn/ui</td><td>The interface is small and deliberately plain; a component kit would add weight and hide the layout decisions the report is describing</td></tr>
+    </table>
+    <p class="table-caption">Table 5.11: Libraries considered and rejected</p>
+
+    <!--TOC:sub:5.5 Development Environment-->
+    <h2>5.5 Development Environment</h2>
+    <p>The repository is a two-workspace layout with no monorepo tooling. That is a deliberate simplicity: two <code>package.json</code> files, two lockfiles, and a root README that states the order of commands.</p>
+
+    <h3>5.5.1 Repository Layout</h3>
+    <pre class="code-block">voteanywhere/
+├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma            14 models, 4 enums, doc comments
+│   │   ├── seed.ts                  idempotent fictional data
+│   │   └── migrations/
+│   │       ├── 20261030175226_init/
+│   │       └── 20261030191353_request_terminal_states/
+│   ├── src/
+│   │   ├── app.ts                   Express app, no listen
+│   │   ├── server.ts                listen, graceful shutdown
+│   │   ├── config/                  env schema, prisma client, logger
+│   │   ├── lib/                     Result, DomainError hierarchy
+│   │   ├── middleware/              authenticate, requireRole, validate,
+│   │   │                            errorHandler, rateLimiters
+│   │   └── modules/                 nine domain modules
+│   │       ├── admin/ auth/ audit/ ballots/ elections/
+│   │       └── officer/ remote-polling/ simulator/ voters/
+│   └── tests/                       6 suites, 49 cases, helpers.ts
+├── frontend/
+│   └── src/
+│       ├── components/              12 components
+│       ├── layouts/                 PortalLayout
+│       ├── pages/                   14 pages in four groups
+│       ├── routes/                  router, RequireRole
+│       ├── services/                axios client and per-domain calls
+│       └── types/                   shared response types
+├── docs/
+├── docker-compose.yml               PostgreSQL 16 only
+└── .env.example                     every variable with a comment</pre>
+    <p>The separation of <code>app.ts</code> from <code>server.ts</code> exists so that Supertest can import the application without binding a port. That single decision is what makes 49 integration tests fast and hermetic; a test that had to start and stop a listener for every case would be an order of magnitude slower.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>5.5.2 Setup Sequence</h3>
+    <!--TAB:5.12:Setup sequence-->
+    <table class="compact">
+        <tr><th style="width:6%;">#</th><th style="width:40%;">Command</th><th>Effect</th></tr>
+        <tr><td>1</td><td><code>cp .env.example .env</code></td><td>Creates the local environment file; three values must be replaced</td></tr>
+        <tr><td>2</td><td><code>openssl rand -hex 32</code></td><td>Produces the 64 hex characters for <code>BALLOT_ENCRYPTION_KEY</code></td></tr>
+        <tr><td>3</td><td><code>docker compose up -d</code></td><td>Starts PostgreSQL 16 with a health check and a named volume</td></tr>
+        <tr><td>4</td><td><code>cd backend &amp;&amp; npm install</code></td><td>Installs backend dependencies and runs <code>prisma generate</code> through the post-install hook</td></tr>
+        <tr><td>5</td><td><code>npx prisma migrate dev</code></td><td>Applies both migrations, including the hand-written partial index</td></tr>
+        <tr><td>6</td><td><code>npx prisma db seed</code></td><td>Inserts two constituencies, two centres, one election, four candidates, four officers and two voters</td></tr>
+        <tr><td>7</td><td><code>npm run dev</code></td><td>Starts the API on port 4000 under <code>tsx watch</code></td></tr>
+        <tr><td>8</td><td><code>cd ../frontend &amp;&amp; npm install &amp;&amp; npm run dev</code></td><td>Starts Vite on 5173 with <code>/api</code> proxied to 4000</td></tr>
+        <tr><td>9</td><td><code>cd ../backend &amp;&amp; npm test</code></td><td>Runs the six suites. Requires a database the seed has populated</td></tr>
+    </table>
+    <p class="table-caption">Table 5.12: Setup sequence</p>
+    <p>Two details of this sequence are worth noting. The seed is idempotent, so step 6 can be repeated without duplicating rows; it uses upserts keyed on the natural codes. And the tests run against the same database as development, in band, which is acceptable because the suites are written to tolerate the seeded rows rather than to assume an empty database. A separate test database would be the more rigorous arrangement and is listed as a limitation in Section 8.3.</p>
+
+    <h3>5.5.3 Coding Conventions</h3>
+    <!--TAB:5.13:Coding conventions-->
+    <table class="compact">
+        <tr><th style="width:24%;">Convention</th><th>Rule applied</th></tr>
+        <tr><td>Module shape</td><td><code>routes.ts</code>, <code>service.ts</code>, <code>repository.ts</code>, <code>schema.ts</code> (plus <code>controller.ts</code> in the auth module). No module reaches into another&rsquo;s repository</td></tr>
+        <tr><td>Database access</td><td>Prisma is imported only in repositories and in the transaction in <code>ballotService</code></td></tr>
+        <tr><td>Errors</td><td>Services throw subclasses of <code>DomainError</code>; only <code>errorHandler</code> converts them to HTTP</td></tr>
+        <tr><td>Authorization</td><td>Every route declares <code>authenticate</code> plus an explicit <code>requireRole(...)</code> or <code>requireVoter</code>; there is no default-allow branch</td></tr>
+        <tr><td>Logging</td><td>The logger receives the redaction list; no voter number, OTP, password, key, nonce, ciphertext or candidate choice is ever passed to it</td></tr>
+        <tr><td>Naming</td><td>The glossary is authoritative: &ldquo;remote polling request&rdquo;, &ldquo;assignment&rdquo;, &ldquo;sealed ballot&rdquo;. Words such as &ldquo;transfer&rdquo;, &ldquo;migrate&rdquo; and &ldquo;node&rdquo; are prohibited in identifiers and user-facing text</td></tr>
+        <tr><td>Comments</td><td>Explain why, not what. Every model in the schema carries a comment naming the invariant it protects</td></tr>
+        <tr><td>Commits</td><td>One logical change; a schema change is always its own migration with its own commit</td></tr>
+    </table>
+    <p class="table-caption">Table 5.13: Coding conventions</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>5.5.4 Configuration Management</h3>
+    <p>Configuration is separated into three classes, and only the first is committed.</p>
+    <p><b>Committed defaults.</b> <code>.env.example</code> lists every variable with a comment explaining how to produce a valid value. It contains no secret: the encryption key entry is the string <code>replace_with_64_hexadecimal_characters</code>, which fails validation loudly if used unchanged, and the seed password entry is similarly a placeholder.</p>
+    <p><b>Local values.</b> <code>.env</code> is ignored by Git. It holds the developer&rsquo;s own key, secret and database password.</p>
+    <p><b>Deployment values.</b> Injected by the platform. The application reads only from <code>process.env</code>, so no code change is required between environments.</p>
+    <p>The validation schema is the enforcement point. It declares <code>DATABASE_URL</code> as a non-empty string, <code>JWT_SECRET</code> as at least 32 characters, and <code>BALLOT_ENCRYPTION_KEY</code> as exactly 64 hexadecimal characters. A deployment with a 63-character key does not start, which is the correct behaviour: a shorter key would be silently padded or truncated by the cipher and would produce a system that appears to work.</p>
+
+    <h3>5.5.5 Version Control Practice</h3>
+    <p>Two branches are used: <code>main</code>, which is always in a state where <code>npm test</code> passes, and short-lived feature branches. Each migration is committed together with the schema change that produced it, so that the migration history and the schema history are the same history. The repository root carries an <code>AGENTS.md</code> and a <code>GLOSSARY.md</code> because the project was developed with AI assistance and the invariants had to be stated once, in a file the assistant reads, rather than repeated in every prompt. Section 8.2 discusses that practice and what it cost.</p>
+
+    <h3>5.5.6 Requirement Traceability to the Stack</h3>
+    <!--TAB:5.14:Non-functional requirements mapped to technology-->
+    <table class="compact">
+        <tr><th style="width:16%;">Requirement</th><th style="width:34%;">Technology that satisfies it</th><th>Where verified</th></tr>
+        <tr><td>NFR-01 Duplicate ballots impossible</td><td>PostgreSQL unique index inside a Prisma transaction</td><td>Suite <code>ballots</code>, and the constraint suite</td></tr>
+        <tr><td>NFR-02 Ballot secrecy</td><td>AES-256-GCM with no voter column in the choice table</td><td>Suite <code>ballots</code>; schema review</td></tr>
+        <tr><td>NFR-05 Immediate revocation</td><td>Session row re-read in <code>authenticate</code></td><td>Suite <code>auth</code></td></tr>
+        <tr><td>NFR-07 No secret in logs</td><td>Redaction list in the logger</td><td>Manual review of log output</td></tr>
+        <tr><td>NFR-11 Deny by default</td><td>Explicit <code>requireRole</code> on every route</td><td>Suite <code>authorization</code></td></tr>
+        <tr><td>NFR-14 Typed boundaries</td><td>Zod at the edge, generated types inside</td><td><code>tsc --noEmit</code></td></tr>
+    </table>
+    <p class="table-caption">Table 5.14: Non-functional requirements mapped to technology</p>
+    <div class="page-number">{{PN}}</div>
+</div>

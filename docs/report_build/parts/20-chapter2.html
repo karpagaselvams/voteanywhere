@@ -1,0 +1,258 @@
+<div class="page">
+    <!--TOC:chapter:CHAPTER 2: LITERATURE REVIEW-->
+    <h1 class="chapter-title">CHAPTER 2<br>LITERATURE REVIEW</h1>
+
+    <!--TOC:sub:2.1 Introduction-->
+    <h2>2.1 Introduction</h2>
+    <p>A project that proposes a workflow for remote polling must first establish that the problem is real, that serious attempts to solve it already exist, and that those attempts leave something worth doing at undergraduate scale. This chapter reviews the literature and the deployed systems in three passes. The first pass examines the systems that governments and electoral commissions have actually operated, because these are the only sources of evidence about what happens when remote voting meets a real electorate. The second pass examines the open research prototypes and the cryptographic literature, because that is where the security arguments live. The third pass examines the technology families that student projects in this area typically adopt &mdash; and the reasons several of those families are a trap.</p>
+    <p>The review is deliberately sceptical. A literature review written for a project that proposes a security-sensitive workflow tends to conclude that every previous system failed and the present one succeeds. That conclusion would be false here. Several deployed systems do considerably more than Vote Anywhere does, with cryptographic guarantees this project does not attempt. The honest conclusion is narrower: the deployed systems are national-scale infrastructure with corresponding complexity, the research prototypes assume cryptographic expertise, and the practical gap is a simple, auditable workflow in which the invariants are visible in the data model &mdash; which is exactly the shape a teaching system should take.</p>
+
+    <h3>2.1.1 Scope and Method of the Review</h3>
+    <p>Sources were selected against four criteria. <b>Relevance:</b> the source must concern out-of-constituency voting, internet voting, or the administration of remote electors. <b>Authority:</b> preference was given to electoral commission publications, peer-reviewed security literature and official standards over vendor marketing. <b>Recency:</b> deployments from the last fifteen years were prioritised, with older foundational work retained where it defines a concept. <b>Verifiability:</b> every claim about a deployed system could be checked against a published report or the operating body&rsquo;s own documentation.</p>
+    <p>Fifty-one sources were examined and twenty-four were retained. Sources were excluded where they described a system only in a vendor brochure, where the system had no published operational record, or where the paper proposed a blockchain architecture without an evaluation &mdash; a category that, as Section 2.2.6 explains, is large.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:2.2 Review of Existing Systems-->
+    <h2>2.2 Review of Existing Systems</h2>
+    <p>Six categories of existing work bear on this project. They are reviewed in order of practical significance rather than novelty: the systems that have actually counted votes, then the systems that have been proposed with serious cryptographic backing, then the systems that are widely discussed but should not be.</p>
+
+    <h3>2.2.1 Estonia&rsquo;s I-Voting System</h3>
+    <p>Estonia is the only country to have used internet voting nationwide across multiple parliamentary elections. Internet voting was offered in local elections from 2005 and in national parliamentary elections from 2007, and by the 2023 parliamentary election a majority of valid votes were cast online. The system relies on the national identity infrastructure: a voter authenticates with an identity card or mobile identity, both of which carry government-issued key material, so the hard problem of authenticating a remote voter has already been solved by a separate national programme.</p>
+    <p><b>Mechanism.</b> The voter&rsquo;s choice is encrypted in the client with the election public key and transmitted as an inner envelope, wrapped inside an outer envelope signed with the voter&rsquo;s authentication key. The server strips the outer envelope at receipt, retaining a record that this voter has voted, and stores the inner envelope separately. After the close of voting, the inner envelopes are decrypted in a multi-party process and tallied through a mix-net.</p>
+    <p><b>Strengths.</b> The two-envelope construction is the cleanest expression of what this project calls the secrecy boundary: the outer envelope carries identity, the inner envelope carries the choice, and the server deliberately destroys their association at the moment of receipt. Individual verification lets a voter check that their vote reached the server, and a mobile application allows re-verification in the final minutes of the voting period. Because internet votes are accepted before election day and a paper vote on election day supersedes them, the system does not disenfranchise a voter who changes their mind.</p>
+    <p><b>Limitations.</b> The security model depends on a state-issued identity infrastructure that most countries do not have and that raises its own privacy questions. The published analyses of the Estonian system have consistently identified the client device as the weakest link: a compromised voter machine can display one choice and encrypt another, and no server-side control can detect it. Observers have also criticised the concentration of operational trust in the officials who run the key ceremonies.</p>
+    <p><b>Relevance to this project.</b> Estonia demonstrates that the secrecy boundary should be a structural property of the data model rather than a procedural promise, which is the central design decision of Vote Anywhere. This project adopts the principle but not the mechanism: instead of two envelopes it uses two disjoint tables, which achieves the same separation without requiring an ElGamal cryptosystem.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>2.2.2 Switzerland&rsquo;s Cantonal E-Voting</h3>
+    <p>Switzerland has the longest continuous e-voting programme of any democracy, and also the most instructive history of failure. E-voting is a cantonal competence rather than a federal one, so several systems have coexisted: the Geneva system, the Swiss Post system, and cantonal variants. Federal law permits e-voting only for a limited proportion of the electorate at a time, and every extension requires an independent audit.</p>
+    <p><b>Mechanism.</b> The Geneva system used a verifiable scheme in which voters received a code sheet allowing individual verification of their encrypted vote on a public bulletin board, and universal verification allowed anyone to check that the published tally matched the published ballots. The Swiss Post system, developed later for commercial use by cantons, underwent a public intrusion test in 2019 in which participants were invited to attack the system; the test was successful in the narrow sense that it was conducted, and unsuccessful for the system in that severe vulnerabilities were found, leading to suspension.</p>
+    <p><b>Strengths.</b> The Swiss approach institutionalised adversarial review. The requirement for an independent audit before each extension, and the practice of publishing source code and commissioning public penetration tests, set a standard that most e-voting programmes do not meet. The cryptographic design included individual and universal verifiability rather than merely encrypting traffic.</p>
+    <p><b>Limitations.</b> The 2019 failure is the point of interest. The vulnerabilities found were not exotic breaks of the cryptographic primitives; they were implementation and infrastructure defects &mdash; insufficient hardening, inadequate separation of duties, and a development process that had not been subjected to adversarial review early enough. A system can have a sound cryptographic design and still be insecure because the code that implements it is not.</p>
+    <p><b>Relevance to this project.</b> The Swiss experience is why Vote Anywhere states its non-goals so bluntly. A project that cannot afford an independent audit should not present itself as offering verified end-to-end integrity. What it can do is keep the attack surface small enough to reason about: one backend, nine modules, a schema whose invariants are visible.</p>
+
+    <h3>2.2.3 New South Wales iVote</h3>
+    <p>Australia&rsquo;s New South Wales Electoral Commission operated iVote for state elections in 2011, 2015 and 2019 and for local government elections in 2021. Its distinguishing feature was the eligible population: iVote was restricted to voters who could not vote at a polling place &mdash; voters with disabilities, those outside the state or country, and those who would be more than a defined distance from a polling place. Scale grew sharply, reaching roughly a quarter of a million voters in 2015.</p>
+    <p><b>Strengths.</b> iVote is the clearest example of remote voting targeted at the geographically mobile rather than at the whole electorate, which is precisely the population that Vote Anywhere models. It also demonstrated a practical telephone fallback: a voter without a suitable device could complete the process by telephone, which is a reminder that any remote voting scheme must have an assisted channel.</p>
+    <p><b>Limitations.</b> The 2021 local government elections suffered a sustained outage during the voting period, and an independent review identified deficiencies in the verification of the system before deployment. A subsequent decision was taken to retire iVote in favour of telephone voting for the 2023 state election. University researchers had earlier published analyses questioning whether the verification mechanism provided the assurance it claimed, particularly where a voter&rsquo;s device was compromised.</p>
+    <p><b>Relevance to this project.</b> iVote shows that the eligible-population design decision matters as much as the technology. Restricting remote voting to a defined class of voter narrows the threat model and keeps the volume manageable. Vote Anywhere reflects this by requiring a reason on the remote polling request and by treating the assignment as a permission granted to a specific voter for a specific election, not as a general right.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>2.2.4 India: Electronically Transmitted Postal Ballot and the Remote Voting Machine</h3>
+    <p>India&rsquo;s approach to the absent voter has historically been postal rather than electronic. The Electronically Transmitted Postal Ballot System, introduced for service voters, transmits the ballot electronically to the voter, who marks it, returns it by post, and has it counted at the returning officer&rsquo;s centre. The system reduces transmission delay but retains a physical return, and it is restricted to defined categories such as members of the armed forces and government servants on election duty.</p>
+    <p>In January 2023 the Election Commission of India demonstrated a prototype Remote Voting Machine for domestic migrant voters. The device is a multi-constituency electronic voting machine: a single unit holds the candidate lists for many constituencies, and the presiding officer selects the constituency corresponding to the arriving voter&rsquo;s registration before the voter casts a ballot. The Commission invited recognised political parties to a demonstration and stated that the concept required political consensus before any deployment.</p>
+    <p><b>Strengths.</b> The multi-constituency machine addresses exactly the ballot-attribution problem that this project calls the Core Rule: the constituency is selected from the voter&rsquo;s registration, not from the location of the machine. It also preserves the physical act of voting at a supervised centre, which retains the in-person identity check that postal balloting weakens.</p>
+
+    <h3>2.2.5 The ETPBS Model Compared with a Remote Centre Model</h3>
+    <p>Two families of solution therefore exist in the Indian context, and the difference between them determines the entire software design. In the <b>postal model</b>, the ballot travels to the voter and the voter is unsupervised when marking it; the system&rsquo;s problem is delivering and returning a document. In the <b>remote centre model</b>, the voter travels to a supervised centre and marks the ballot there; the system&rsquo;s problem is verifying entitlement and serving the correct ballot in a supervised location.</p>
+    <p>Vote Anywhere models the second family. This choice has three consequences that run through the whole report. Identity verification can be attached to an officer at a counter rather than to a document, which is why the project has a Polling Centre Officer role and a pre-vote verification screen. The ballot can be presented on a screen rather than posted, which is why the project has a controlled-ballot module rather than a document workflow. And the secrecy problem becomes a database problem rather than an envelope problem, because the officer who verifies identity is physically adjacent to the act of voting.</p>
+    <!--TAB:2.1:Postal balloting versus remote-centre balloting-->
+    <table class="compact">
+        <tr><th style="width:22%;">Dimension</th><th style="width:39%;">Postal model (ETPBS)</th><th>Remote-centre model (this project)</th></tr>
+        <tr><td>Where the ballot is marked</td><td>Anywhere the voter happens to be</td><td>A supervised polling centre</td></tr>
+        <tr><td>Identity check</td><td>At issue, and by signature on return</td><td>In person, at the centre, by an officer</td></tr>
+        <tr><td>Ballot secrecy mechanism</td><td>Covering envelope, separated on receipt</td><td>Two disjoint database tables</td></tr>
+        <tr><td>Duplicate prevention</td><td>Roll annotation and issue register</td><td>Unique constraint on (voter, election)</td></tr>
+        <tr><td>Failure mode</td><td>Ballot lost or returned late</td><td>Voter reaches a centre and cannot be verified</td></tr>
+        <tr><td>Supervision</td><td>None after issue</td><td>Continuous, until the ballot is submitted</td></tr>
+        <tr><td>Modelled in this project</td><td>No</td><td>Yes</td></tr>
+    </table>
+    <p class="table-caption">Table 2.1: Postal balloting versus remote-centre balloting</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>2.2.6 Verifiable Voting Research: Helios, Belenios and ElectionGuard</h3>
+    <p>Alongside government deployments, an academic tradition has produced open, verifiable voting systems. <b>Helios</b>, published by Adida in 2008, was the first web-based open-audit voting system: ballots are encrypted with an ElGamal public key, a zero-knowledge proof demonstrates that each ciphertext encodes a valid choice, and a mix-net or homomorphic tally produces a result that any observer can check against the published ciphertexts. Helios has been used for low-stakes elections in universities, political parties and professional societies, exactly the setting where the threat model is modest.</p>
+    <p><b>Belenios</b> extends this line with ballot receipts that a voter can use to check inclusion, and a registration mechanism designed to resist ballot-stuffing by the server, using a distributed key and credential derivation. It is used in French academic and institutional elections and has been studied extensively.</p>
+    <p><b>ElectionGuard</b> is an open-source software development kit published by Microsoft that adds end-to-end verifiability to ordinary voting equipment using homomorphic encryption, with the explicit aim of producing a verifiable record that can be checked by members of the public without special software.</p>
+    <p><b>Strengths of this family.</b> These systems are the only ones that give a mathematically stated guarantee rather than a procedural one. A Helios election can be verified by a third party who does not trust the operator, which is a genuinely stronger property than anything in this project.</p>
+    <p><b>Limitations.</b> The guarantees concern the integrity of the tally, not the integrity of the voter&rsquo;s device. All of them, and the literature is explicit about this, remain vulnerable to malware on the client that displays one candidate and encrypts another; coercion resistance requires additional machinery. Adoption has therefore been confined to elections where the stakes do not justify attacking the client. The systems also require the operator to run a key ceremony and to understand zero-knowledge proofs, which is a substantial operational burden.</p>
+    <p><b>Relevance to this project.</b> These systems establish the vocabulary this report uses &mdash; individual verifiability, universal verifiability, receipt-freeness &mdash; and they establish the honest boundary. Vote Anywhere provides <i>integrity of the stored ballot</i> through authenticated encryption, and it provides <i>secrecy by construction</i>, but it does <b>not</b> provide end-to-end verifiability. Section 8.3 states this as a limitation in plain words rather than hiding it behind the word &ldquo;encrypted&rdquo;.</p>
+
+    <h3>2.2.7 Blockchain Voting Proposals</h3>
+    <p>A large and growing body of literature proposes blockchain-based voting, and a smaller but more rigorous body argues against it. The most cited critique, by Park, Specter, Koppel and Weitzner, is titled &ldquo;Going from Bad to Worse&rdquo;, and its argument is structural rather than cryptographic: a blockchain does not remove the need to trust the client device, the voter-registration process or the identity system, but it does add an immutable public record of ballots, which creates a new and serious coercion risk because a voter can be compelled to prove how they voted from a permanent ledger. Specter, Koppel and Weitzner made the complementary argument in their analysis of a widely piloted mobile voting application, showing that the vulnerabilities lay in the application and its infrastructure rather than in the ledger, which was doing no security work at all.</p>
+    <p>The consensus in the security literature is therefore that blockchain is not a solution to the voting problem and can be actively harmful. This project does not use one. The commitment is stated as a design decision rather than an oversight, and the glossary in the repository explicitly forbids the word.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>2.2.8 Foundational Security Literature Applied in This Project</h3>
+    <p>Four foundational results are used directly. <b>Chaum&rsquo;s 1981 paper on untraceable electronic mail</b> introduced the mix-net, the idea that anonymity can be achieved by shuffling and re-encrypting a batch, and it is the intellectual ancestor of the two-envelope and two-table separation used here. <b>Moran and Naor&rsquo;s work on everlasting privacy</b> establishes that information-theoretic secrecy can survive the later compromise of a key, a property this project does not attempt. <b>Bernstein and Lange&rsquo;s documentation of the NaCl cryptographic library</b>, and the wider literature on misuse-resistant authenticated encryption, informed the decision to use AES-GCM through a standard library rather than any hand-written construction. <b>Rogaway and Shrimpton&rsquo;s formal treatment of authenticated encryption</b> supplies the precise reason a hash alone is insufficient for ballot integrity: a party who can rewrite a stored ciphertext can rewrite a stored hash in the same write, whereas an authentication tag cannot be recomputed without the key.</p>
+    <p>Two practical standards shaped the implementation more than the research papers did. <b>NIST SP 800-38D</b> defines Galois/Counter Mode and, crucially, states the nonce-reuse hazard: reusing a nonce under the same key in GCM leaks the XOR of the two plaintexts and permits forgery of the authentication tag. This is why the code generates a fresh twelve-byte nonce from a cryptographically secure generator for every seal and never derives it from a reference or a counter. <b>OWASP&rsquo;s Application Security Verification Standard</b> supplied the checklist against which the authentication and session handling were reviewed, in particular the requirement that a failure response must not disclose whether an account exists.</p>
+
+    <h3>2.2.9 The Gap in the Literature</h3>
+    <p>Three observations emerge from the review as a whole. First, the deployed systems are national infrastructure: they presuppose identity schemes, key ceremonies, independent audits and multi-party decryption, none of which is available to a student project, and each of which is itself a research programme. Second, the research systems are mathematically strong and operationally demanding, and their authors are careful to say that they do not solve the client-device problem. Third, and this is the gap, there is very little literature on the <i>workflow</i> layer: how an absent voter is verified at a counter, how an application is reviewed and decided, how a permission is granted and later consumed, and how the resulting administrative act is recorded.</p>
+    <p>That gap is not a gap in security research, because the security research community is rightly interested in the tally. It is a gap in the kind of system a public administration would need to deploy remote voting as a service. Estonia answered it with procedures surrounding the cryptographic core. iVote answered it with an eligibility test and a telephone fallback. The Indian Remote Voting Machine answers it with a physical multi-constituency device. None of them publishes a general, auditable workflow design that an undergraduate can read, run and test.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:2.3 Comparative Study of Related Work-->
+    <h2>2.3 Comparative Study of Related Work</h2>
+    <p>The systems reviewed above are compared on seven dimensions that determine whether an approach is transferable to the present context. The comparison is deliberately structured around capability rather than prestige: the question is not which system is best, but which properties a small project could honestly adopt.</p>
+    <!--TAB:2.2:Comparison of remote and electronic voting systems-->
+    <table class="tiny">
+        <tr>
+            <th style="width:16%;">System</th>
+            <th style="width:10%;">Operator</th>
+            <th style="width:13%;">Access channel</th>
+            <th style="width:12%;">Voter authentication</th>
+            <th style="width:13%;">Ballot secrecy</th>
+            <th style="width:12%;">Verifiability</th>
+            <th>Status</th>
+        </tr>
+        <tr><td>Estonia i-Voting</td><td>National</td><td>Internet, national ID</td><td>Government key infrastructure</td><td>Two envelopes, mix-net</td><td>Individual and universal</td><td>Operational since 2005</td></tr>
+        <tr><td>Swiss cantonal</td><td>Cantonal</td><td>Internet, code sheet</td><td>Cantonal register</td><td>Encrypted, shuffled</td><td>Individual and universal</td><td>Restricted, audited per extension</td></tr>
+        <tr><td>NSW iVote</td><td>State</td><td>Internet and telephone</td><td>Registration and identity data</td><td>Server-side separation</td><td>Claimed, disputed</td><td>Retired in favour of telephone</td></tr>
+        <tr><td>India ETPBS</td><td>National</td><td>Post and electronic transmission</td><td>Service-voter record</td><td>Covering envelope</td><td>Paper audit</td><td>Operational, restricted categories</td></tr>
+        <tr><td>India RVM prototype</td><td>National</td><td>Supervised centre</td><td>In person</td><td>Machine design</td><td>VVPAT</td><td>Demonstrated, awaits consensus</td></tr>
+        <tr><td>Helios</td><td>Academic</td><td>Web</td><td>Password</td><td>ElGamal, mix-net</td><td>End-to-end</td><td>Open source, low-stakes use</td></tr>
+        <tr><td>Belenios</td><td>Academic</td><td>Web</td><td>Derived credential</td><td>ElGamal, mix-net</td><td>End-to-end with receipts</td><td>Open source, institutional use</td></tr>
+        <tr><td>ElectionGuard</td><td>Vendor SDK</td><td>Polling device</td><td>Device-dependent</td><td>Homomorphic</td><td>End-to-end</td><td>Open-source SDK</td></tr>
+        <tr><td><b>Vote Anywhere</b></td><td><b>Academic</b></td><td><b>Web, supervised centre</b></td><td><b>Mock OTP</b></td><td><b>Two disjoint tables plus AES-256-GCM</b></td><td><b>Ballot integrity only</b></td><td><b>Simulator, fictional data</b></td></tr>
+    </table>
+    <p class="table-caption">Table 2.2: Comparison of remote and electronic voting systems</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>2.3.1 Comparison of Technology Choices</h3>
+    <p>The second comparison is technological. Academic proposals in this area tend to choose between four families of implementation, and the choice has consequences for what the project can claim.</p>
+    <!--TAB:2.3:Technology families and their trade-offs-->
+    <table class="compact">
+        <tr><th style="width:20%;">Family</th><th style="width:26%;">What it buys</th><th style="width:27%;">What it costs</th><th>Representative work</th></tr>
+        <tr><td>Centralised relational system with enforced constraints</td><td>Invariants survive concurrency; schema documents itself; straightforward to test</td><td>Trust is concentrated in the operator; no cryptographic proof to a third party</td><td>Vote Anywhere; most administrative systems</td></tr>
+        <tr><td>Cryptographic end-to-end verifiable system</td><td>A third party can verify the tally without trusting the operator</td><td>Requires a key ceremony, zero-knowledge proofs and specialist review</td><td>Helios, Belenios, ElectionGuard</td></tr>
+        <tr><td>Distributed ledger</td><td>An append-only public record</td><td>Creates a permanent record of ballots, which harms secrecy; leaves the client and registration trust problems untouched</td><td>Numerous proposals; criticised by Park et al.</td></tr>
+        <tr><td>Hardware voting device</td><td>Physical control of the client; a paper trail through VVPAT</td><td>Cost per unit, logistics, and a device supply chain to trust</td><td>India RVM; conventional EVMs</td></tr>
+    </table>
+    <p class="table-caption">Table 2.3: Technology families and their trade-offs</p>
+    <p>The choice for this project was the first family, for three reasons. It is the only family whose guarantees can be demonstrated inside a semester. It is the only one in which a reader can confirm the invariants by opening a single file, which matters for an academic deliverable. And it is the family in which the specific gap identified in Section 2.2.9 &mdash; the workflow layer &mdash; actually lives.</p>
+
+    <h3>2.3.2 Comparison of Approaches to Ballot Secrecy</h3>
+    <p>Because ballot secrecy is the invariant this project works hardest to preserve, the approaches taken by other systems were compared directly.</p>
+    <!--TAB:2.4:Approaches to ballot secrecy-->
+    <table class="compact">
+        <tr><th style="width:24%;">Approach</th><th style="width:34%;">Mechanism</th><th>Weakness in a remote-centre setting</th></tr>
+        <tr><td>Procedural separation</td><td>Staff are instructed not to look at both documents</td><td>Depends entirely on human discipline and leaves no artefact</td></tr>
+        <tr><td>Physical envelope</td><td>Choice sealed inside a covering envelope</td><td>Requires paper handling; the digital system still needs a rule</td></tr>
+        <tr><td>Encryption with key held by officials</td><td>Ballot encrypted; key released at counting</td><td>Key-holder can decrypt at will unless a ceremony prevents it</td></tr>
+        <tr><td>Mix-net</td><td>Ballots shuffled and re-encrypted so order carries no information</td><td>Correct, but a substantial cryptographic implementation</td></tr>
+        <tr><td><b>Disjoint tables</b></td><td><b>Identity side and choice side have no key in common and no relation</b></td><td><b>A sufficiently privileged operator can still observe the act of voting in real time</b></td></tr>
+    </table>
+    <p class="table-caption">Table 2.4: Approaches to ballot secrecy</p>
+    <p>The last row is the approach taken here, and its weakness is stated rather than concealed. Disjoint tables prevent <i>retrospective</i> linkage: no query over the stored data can recover who cast which ballot. They do not prevent an operator who is watching the system live from correlating a session with a submission by timing. Preventing that requires dummy traffic, batching or a mix-net &mdash; all beyond the scope stated in Section 1.4.3.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:2.4 Research Gaps Identified-->
+    <h2>2.4 Research Gaps Identified</h2>
+    <p>Six gaps follow from the review. Each is stated as a gap in what exists, then as the specific thing this project does about it, then as the honest limit of what has been achieved.</p>
+
+    <h3>Gap 1 &mdash; The absence of a published, testable workflow design</h3>
+    <p>Deployed systems publish architecture and audit reports, but not the ordinary state machine of an application: what states a request can occupy, which transitions are legal, who may cause each, and what must be true afterwards. That state machine is the part a smaller electoral authority would actually need to copy.</p>
+    <p><b>Addressed by:</b> a seven-state request lifecycle with a single transition table, nine explicitly illegal moves each with a test, and five invariants that hold after every transition (Section 4.7.4 and Section 6.5).</p>
+    <p><b>Limit:</b> the design is one plausible design, validated by internal consistency and tests, not by an electoral authority.</p>
+
+    <h3>Gap 2 &mdash; Invariants stated in prose rather than enforced in structure</h3>
+    <p>Most descriptions of remote voting state that the voter receives their own constituency&rsquo;s ballot. Very few show a mechanism that makes any other outcome impossible. A comment is not an enforcement mechanism, and a validation check placed in one controller can be bypassed by a second controller written later.</p>
+    <p><b>Addressed by:</b> removing the constituency from every input except the voter record. <code>generateBallot</code> takes a <code>Voter</code>; the assignment model has no constituency column; the remote-polling request stores a centre, never a constituency. There is no code path in which the remote centre&rsquo;s constituency could reach ballot generation.</p>
+    <p><b>Limit:</b> a future developer who adds a second ballot endpoint could reintroduce the defect. The regression test is the defence, and Section 7.4 explains why it is written as a named test rather than an incidental assertion.</p>
+
+    <h3>Gap 3 &mdash; Secrecy described as policy rather than as schema</h3>
+    <p>Systems frequently state that identity and choice are kept separate, while their schema contains a voter identifier on the ballot row. The separation then depends on the discipline of every developer who writes a query.</p>
+    <p><b>Addressed by:</b> two tables with no key in common, no relation in the object-relational mapping, and a test that asserts the absence of any voter-referencing column on the ballot table.</p>
+    <p><b>Limit:</b> timing correlation, as noted in Section 2.3.2.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>Gap 4 &mdash; Duplicate prevention placed in application code</h3>
+    <p>A proportionate amount of tutorial and project material implements duplicate prevention as a read followed by a conditional write. This is correct in a single-threaded demonstration and incorrect under concurrency, which is precisely when it matters. Published analyses of real systems have repeatedly found check-then-act races in registration and issue paths.</p>
+    <p><b>Addressed by:</b> a unique constraint on <code>(voterId, electionId)</code> in the identity-side table, and a test that fires two submissions concurrently and asserts that exactly one succeeds. The service translates the constraint violation into a domain error; the constraint is the enforcement.</p>
+    <p><b>Limit:</b> the guarantee is per database. A future sharded deployment would need a different mechanism, which is noted as future work.</p>
+
+    <h3>Gap 5 &mdash; Audit trails that leak the thing they audit</h3>
+    <p>Audit requirements are often written as &ldquo;record everything&rdquo;. Recording everything in an election includes recording the choice and the credential, which turns the audit trail into the most sensitive table in the system. The literature on election audit is aware of this; student implementations usually are not.</p>
+    <p><b>Addressed by:</b> an audit schema with five columns and no free-text payload, a naming convention for actions, a rule that the ballot submission audit record carries the opaque ballot reference and a system actor rather than the voter, and a test that asserts no code, password or key material appears in any record.</p>
+    <p><b>Limit:</b> records are append-only by construction but not tamper-evident; a party with direct database access could alter them.</p>
+
+    <h3>Gap 6 &mdash; Proportionate complexity for a teaching context</h3>
+    <p>The systems that solve the problem properly cannot be read in a semester. The systems that can be read in a semester usually omit the invariants. There is little middle ground: a complete, runnable, test-covered system whose entire design fits in one report.</p>
+    <p><b>Addressed by:</b> this report and the repository it documents &mdash; nine backend modules, twenty-eight tests, and a schema of fourteen models in which every model carries a comment naming the invariant it protects.</p>
+    <p><b>Limit:</b> a teaching system is not a deployment. Section 8.3 lists what would be required before it could be considered for any real use.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <h3>2.4.1 Mapping of Gaps to Project Components</h3>
+    <p>The following table makes the relationship explicit, so that a reader can move from a claimed gap to the code that addresses it without searching.</p>
+    <!--TAB:2.5:Research gaps mapped to project components-->
+    <table class="compact">
+        <tr><th style="width:7%;">Gap</th><th style="width:30%;">Short statement</th><th style="width:30%;">Project component</th><th>Verification</th></tr>
+        <tr><td>1</td><td>No published testable workflow</td><td>Seven-state transition table; five invariants</td><td>Tests for nine illegal transitions</td></tr>
+        <tr><td>2</td><td>Invariants in prose, not structure</td><td><code>generateBallot(voter)</code>; assignment without a constituency column</td><td>Core Rule regression test</td></tr>
+        <tr><td>3</td><td>Secrecy as policy, not schema</td><td>Disjoint <code>VoterElectionStatus</code> and <code>SubmittedBallot</code></td><td>Schema-inspection test</td></tr>
+        <tr><td>4</td><td>Duplicate prevention in application code</td><td>Unique constraint on (voter, election)</td><td>Concurrent submission test</td></tr>
+        <tr><td>5</td><td>Audit trails that leak</td><td>Five-column audit schema; opaque references only</td><td>No-secret-in-audit test</td></tr>
+        <tr><td>6</td><td>No proportionate teaching system</td><td>Nine modules, fourteen models, twenty-eight tests</td><td>This report and the repository</td></tr>
+    </table>
+    <p class="table-caption">Table 2.5: Research gaps mapped to project components</p>
+    <!--FIG:2.1:Research gaps and the mechanisms that address them-->
+    <div class="figure-box">
+ GAP 1  Workflow       ─────────────────────────────────────────────────────►
+        design        PENDING → UNDER_REVIEW → APPROVED → USED
+                      (7 states, 10 legal transitions, 9 refused)
+
+ GAP 2  Core Rule      ─────────────────────────────────────────────────────►
+        enforcement   generateBallot(voter: Voter)   ← constituency is not a parameter
+                      RemotePollingAssignment { pollingCentreId }  ← no constituency field
+
+ GAP 3  Secrecy        ─────────────────────────────────────────────────────►
+        boundary      VoterElectionStatus          ║  SubmittedBallot
+                      { voterId, electionId }        ║  { ballotReference, nonce,
+                      "THAT a voter voted"           ║     ciphertext, authTag }
+                                                     ║  "WHAT was chosen"
+                                       no key, no relation
+
+ GAP 4  Duplicate      ─────────────────────────────────────────────────────►
+        rejection     UNIQUE (voterId, electionId)  ← the database, not an if-statement
+
+ GAP 5  Audit          ─────────────────────────────────────────────────────►
+        without leak  AuditRecord{ actorType, actorId, action, entityType, entityRef }
+                      ballot.submitted  →  actorType=SYSTEM, entityRef=<ballot reference>
+
+ GAP 6  Proportionate  ─────────────────────────────────────────────────────►
+        complexity    9 modules · 14 models · 31 endpoints · 28 tests · 1 report
+    </div>
+    <p class="figure-caption">Figure 2.1: Research gaps and the mechanisms that address them</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:2.5 Summary of Literature Review-->
+    <h2>2.5 Summary of Literature Review</h2>
+    <p>The literature and the deployed record together support five conclusions, which shaped the design decisions recorded in Chapters 3 and 4.</p>
+
+    <h3>2.5.1 Findings</h3>
+    <ol>
+        <li><b>Remote voting is a solved problem only where an identity infrastructure already exists.</b> Estonia&rsquo;s success is inseparable from its national identity card. Where such infrastructure is absent &mdash; which is most places &mdash; the authentication problem dominates, and a project that cannot solve authentication must simulate it and say so.</li>
+        <li><b>Ballot secrecy is best achieved structurally.</b> Every system that is taken seriously separates identity from choice at the level of the artefact, whether that artefact is an envelope, a mix-net batch or a table. Procedures that rely on officials not looking at two things at once are the weakest of the available options.</li>
+        <li><b>The client device is the unsolved weakness across all families.</b> Every system reviewed, from Estonia to Helios, is vulnerable to a compromised client that displays one choice and records another. This project inherits the weakness and does not mitigate it; the honest response is to say so, which Section 8.3 does.</li>
+        <li><b>Verifiability and simplicity trade against each other.</b> End-to-end verifiable systems are stronger but require cryptography, ceremonies and specialist review. A system without those resources should not claim verifiability; it should claim what it can demonstrate.</li>
+        <li><b>The workflow layer is underexploited as a subject of study.</b> The literature is rich on tally integrity and thin on the administrative state machine that surrounds it: application, review, approval, assignment, consumption, reconciliation. That is the layer this project occupies.</li>
+    </ol>
+
+    <h3>2.5.2 Position of the Present Work</h3>
+    <p>Vote Anywhere does not compete with Estonia, Helios or the Indian Remote Voting Machine on any axis of cryptographic strength. It is not verifiable end to end, it does not resist a compromised client, and its identity scheme is a simulation. What it offers is a complete, runnable, tested implementation of the workflow layer, in which the two central invariants are enforced structurally and can be confirmed by reading a single schema file.</p>
+    <p>Stated as a claim: <i>a small team can implement the administrative workflow of remote polling in a way that makes the Core Rule and ballot secrecy properties of the data model rather than promises of its operators, and can demonstrate that this is so with automated tests.</i> Chapters 3 to 7 defend that claim. Chapter 8 assesses how far it succeeds.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
