@@ -1,0 +1,842 @@
+[
+ {
+  "cls": "chapter",
+  "title": "CHAPTER 1: INTRODUCTION",
+  "page": "1"
+ },
+ {
+  "cls": "sub",
+  "title": "1.1 Overview of the Project",
+  "page": "1"
+ },
+ {
+  "cls": "sub",
+  "title": "1.2 Background of the Study",
+  "page": "4"
+ },
+ {
+  "cls": "sub",
+  "title": "1.3 Problem Statement",
+  "page": "7"
+ },
+ {
+  "cls": "sub",
+  "title": "1.4 Objectives of the Project",
+  "page": "10"
+ },
+ {
+  "cls": "sub",
+  "title": "1.5 Scope of the Project",
+  "page": "12"
+ },
+ {
+  "cls": "sub",
+  "title": "1.6 Project Motivation",
+  "page": "15"
+ },
+ {
+  "cls": "sub",
+  "title": "1.7 Assumptions and Constraints",
+  "page": "17"
+ },
+ {
+  "cls": "sub",
+  "title": "1.8 Organization of the Report",
+  "page": "19"
+ },
+ {
+  "cls": "chapter",
+  "title": "CHAPTER 2: LITERATURE REVIEW",
+  "page": "21"
+ },
+ {
+  "cls": "sub",
+  "title": "2.1 Introduction",
+  "page": "21"
+ },
+ {
+  "cls": "sub",
+  "title": "2.2 Review of Existing Systems",
+  "page": "22"
+ },
+ {
+  "cls": "sub",
+  "title": "2.3 Comparative Study of Related Work",
+  "page": "31"
+ },
+ {
+  "cls": "sub",
+  "title": "2.4 Research Gaps Identified",
+  "page": "34"
+ },
+ {
+  "cls": "sub",
+  "title": "2.5 Summary of Literature Review",
+  "page": "37"
+ },
+ {
+  "cls": "chapter",
+  "title": "CHAPTER 3: SYSTEM ANALYSIS",
+  "page": "38"
+ },
+ {
+  "cls": "sub",
+  "title": "3.1 Existing System Analysis",
+  "page": "38"
+ },
+ {
+  "cls": "sub",
+  "title": "3.2 Limitations of Existing System",
+  "page": "42"
+ },
+ {
+  "cls": "sub",
+  "title": "3.3 Proposed System",
+  "page": "45"
+ },
+ {
+  "cls": "sub",
+  "title": "3.4 Advantages of Proposed System",
+  "page": "50"
+ },
+ {
+  "cls": "sub",
+  "title": "3.5 Feasibility Study",
+  "page": "52"
+ },
+ {
+  "cls": "subsub",
+  "title": "3.5.1 Technical Feasibility",
+  "page": "52"
+ },
+ {
+  "cls": "subsub",
+  "title": "3.5.2 Economic Feasibility",
+  "page": "54"
+ },
+ {
+  "cls": "subsub",
+  "title": "3.5.3 Operational Feasibility",
+  "page": "56"
+ },
+ {
+  "cls": "sub",
+  "title": "3.6 Software Requirement Specification",
+  "page": "58"
+ },
+ {
+  "cls": "chapter",
+  "title": "CHAPTER 4: SYSTEM DESIGN",
+  "page": "70"
+ },
+ {
+  "cls": "sub",
+  "title": "4.1 Design Overview",
+  "page": "70"
+ },
+ {
+  "cls": "sub",
+  "title": "4.2 System Architecture",
+  "page": "72"
+ },
+ {
+  "cls": "sub",
+  "title": "4.3 Data Flow Diagrams",
+  "page": "77"
+ },
+ {
+  "cls": "sub",
+  "title": "4.4 Use Case Diagram",
+  "page": "80"
+ },
+ {
+  "cls": "sub",
+  "title": "4.5 Class Diagram",
+  "page": "85"
+ },
+ {
+  "cls": "sub",
+  "title": "4.6 Entity Relationship Diagram",
+  "page": "88"
+ },
+ {
+  "cls": "sub",
+  "title": "4.7 Database Design",
+  "page": "93"
+ },
+ {
+  "cls": "sub",
+  "title": "4.8 Input and Output Design",
+  "page": "101"
+ },
+ {
+  "cls": "chapter",
+  "title": "CHAPTER 5: SOFTWARE AND HARDWARE REQUIREMENTS",
+  "page": "109"
+ },
+ {
+  "cls": "sub",
+  "title": "5.1 Software Requirements",
+  "page": "109"
+ },
+ {
+  "cls": "sub",
+  "title": "5.2 Hardware Requirements",
+  "page": "113"
+ },
+ {
+  "cls": "sub",
+  "title": "5.3 Languages Used",
+  "page": "114"
+ },
+ {
+  "cls": "sub",
+  "title": "5.4 Frameworks and Libraries",
+  "page": "116"
+ },
+ {
+  "cls": "sub",
+  "title": "5.5 Development Environment",
+  "page": "118"
+ },
+ {
+  "cls": "chapter",
+  "title": "CHAPTER 6: IMPLEMENTATION",
+  "page": "123"
+ },
+ {
+  "cls": "sub",
+  "title": "6.1 Module Description",
+  "page": "123"
+ },
+ {
+  "cls": "sub",
+  "title": "6.2 Algorithms",
+  "page": "124"
+ },
+ {
+  "cls": "sub",
+  "title": "6.3 Pseudocode of the State Machine",
+  "page": "126"
+ },
+ {
+  "cls": "sub",
+  "title": "6.4 Code Snippets",
+  "page": "128"
+ },
+ {
+  "cls": "sub",
+  "title": "6.5 Screenshots",
+  "page": "131"
+ },
+ {
+  "cls": "sub",
+  "title": "6.6 Integration",
+  "page": "136"
+ },
+ {
+  "cls": "chapter",
+  "title": "CHAPTER 7: TESTING",
+  "page": "138"
+ },
+ {
+  "cls": "sub",
+  "title": "7.1 Introduction to Testing",
+  "page": "138"
+ },
+ {
+  "cls": "sub",
+  "title": "7.2 Objectives of Testing",
+  "page": "139"
+ },
+ {
+  "cls": "sub",
+  "title": "7.3 Types of Testing Applied",
+  "page": "141"
+ },
+ {
+  "cls": "sub",
+  "title": "7.4 Test Suites and Results",
+  "page": "143"
+ },
+ {
+  "cls": "sub",
+  "title": "7.5 System Testing",
+  "page": "145"
+ },
+ {
+  "cls": "sub",
+  "title": "7.6 Security Testing",
+  "page": "147"
+ },
+ {
+  "cls": "sub",
+  "title": "7.7 Performance Testing",
+  "page": "150"
+ },
+ {
+  "cls": "sub",
+  "title": "7.8 User Acceptance Testing",
+  "page": "152"
+ },
+ {
+  "cls": "sub",
+  "title": "7.9 Browser Compatibility",
+  "page": "154"
+ },
+ {
+  "cls": "sub",
+  "title": "7.10 Recovery Testing",
+  "page": "154"
+ },
+ {
+  "cls": "sub",
+  "title": "7.11 Defects Found and Fixed",
+  "page": "155"
+ },
+ {
+  "cls": "sub",
+  "title": "7.12 Test Summary",
+  "page": "158"
+ },
+ {
+  "cls": "chapter",
+  "title": "CHAPTER 8: CONCLUSION",
+  "page": "159"
+ },
+ {
+  "cls": "sub",
+  "title": "8.1 Conclusion",
+  "page": "159"
+ },
+ {
+  "cls": "sub",
+  "title": "8.2 Achievements",
+  "page": "161"
+ },
+ {
+  "cls": "sub",
+  "title": "8.3 Limitations",
+  "page": "163"
+ },
+ {
+  "cls": "sub",
+  "title": "8.4 Future Enhancements",
+  "page": "165"
+ },
+ {
+  "cls": "sub",
+  "title": "8.5 Social Impact",
+  "page": "167"
+ },
+ {
+  "cls": "sub",
+  "title": "8.6 Final Remarks",
+  "page": "169"
+ },
+ {
+  "cls": "chapter",
+  "title": "REFERENCES",
+  "page": "170"
+ },
+ {
+  "cls": "chapter",
+  "title": "APPENDIX A: DATA DICTIONARY",
+  "page": "174"
+ },
+ {
+  "cls": "chapter",
+  "title": "APPENDIX B: API REFERENCE",
+  "page": "179"
+ },
+ {
+  "cls": "chapter",
+  "title": "APPENDIX C: CODE LISTINGS",
+  "page": "181"
+ },
+ {
+  "cls": "chapter",
+  "title": "APPENDIX D: TEST CASE INDEX",
+  "page": "183"
+ },
+ {
+  "cls": "",
+  "title": "Figure 2.1: Research gaps and the mechanisms that address them",
+  "page": "36"
+ },
+ {
+  "cls": "",
+  "title": "Figure 3.1: System boundary of the proposed system",
+  "page": "49"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.1: System architecture and module decomposition",
+  "page": "74"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.2: Context level data flow diagram (Level 0)",
+  "page": "77"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.3: Level 1 data flow diagram",
+  "page": "78"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.4: Level 2 data flow diagram - remote polling workflow",
+  "page": "79"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.5: Overall use case diagram",
+  "page": "80"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.6: Voter use case diagram",
+  "page": "81"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.7: Class diagram - domain models",
+  "page": "85"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.8: Entity relationship diagram",
+  "page": "88"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.9: Remote polling request state machine",
+  "page": "96"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.10: Election lifecycle and its guards",
+  "page": "99"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.11: Output design - controlled ballot screen",
+  "page": "106"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.12: Output design - voter dashboard",
+  "page": "106"
+ },
+ {
+  "cls": "",
+  "title": "Figure 4.13: Output design - officer review queue",
+  "page": "107"
+ },
+ {
+  "cls": "",
+  "title": "Figure 6.1: Voter sign-in - voter number entry",
+  "page": "131"
+ },
+ {
+  "cls": "",
+  "title": "Figure 6.2: One-time code verification",
+  "page": "131"
+ },
+ {
+  "cls": "",
+  "title": "Figure 6.3: Voter dashboard with an approved remote request",
+  "page": "132"
+ },
+ {
+  "cls": "",
+  "title": "Figure 6.4: Eligibility check with four named checks",
+  "page": "133"
+ },
+ {
+  "cls": "",
+  "title": "Figure 6.5: Remote polling request form",
+  "page": "133"
+ },
+ {
+  "cls": "",
+  "title": "Figure 6.6: Officer review queue",
+  "page": "134"
+ },
+ {
+  "cls": "",
+  "title": "Figure 6.7: Verification at a polling centre",
+  "page": "134"
+ },
+ {
+  "cls": "",
+  "title": "Figure 6.8: Administration dashboard",
+  "page": "135"
+ },
+ {
+  "cls": "",
+  "title": "Figure 6.9: Reconciliation report and aggregate results",
+  "page": "135"
+ },
+ {
+  "cls": "",
+  "title": "Table 2.1: Postal balloting versus remote-centre balloting",
+  "page": "26"
+ },
+ {
+  "cls": "",
+  "title": "Table 2.2: Comparison of remote and electronic voting systems",
+  "page": "31"
+ },
+ {
+  "cls": "",
+  "title": "Table 2.3: Technology families and their trade-offs",
+  "page": "32"
+ },
+ {
+  "cls": "",
+  "title": "Table 2.4: Approaches to ballot secrecy",
+  "page": "33"
+ },
+ {
+  "cls": "",
+  "title": "Table 2.5: Research gaps mapped to project components",
+  "page": "36"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.1: Characteristics of the existing processes",
+  "page": "40"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.2: Limitations of the existing system and remedies in the proposed system",
+  "page": "44"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.3: Module responsibilities",
+  "page": "47"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.4: Technology summary of the proposed system",
+  "page": "48"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.5: Before and after comparison",
+  "page": "49"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.6: Advantages compared with alternatives",
+  "page": "51"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.7: Technical feasibility assessment",
+  "page": "53"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.8: Development cost estimate",
+  "page": "54"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.9: Operational feasibility by user group",
+  "page": "57"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.10: Functional requirements",
+  "page": "59"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.11: Non-functional requirements",
+  "page": "64"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.12: Business rules",
+  "page": "66"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.13: Requirement prioritisation",
+  "page": "68"
+ },
+ {
+  "cls": "",
+  "title": "Table 3.14: Requirement traceability summary",
+  "page": "68"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.1: Design constraints and consequences",
+  "page": "71"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.2: Monolith versus microservices for this project",
+  "page": "72"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.3: Middleware chain and what each stage guarantees",
+  "page": "75"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.4: Use case realisation matrix",
+  "page": "83"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.5: Service collaborations",
+  "page": "87"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.6: Relationships and cardinalities",
+  "page": "89"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.7: The Core Rule worked example",
+  "page": "91"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.8: Enumerated types",
+  "page": "93"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.9: Table inventory",
+  "page": "94"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.10: VoterElectionStatus structure",
+  "page": "95"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.11: SubmittedBallot structure",
+  "page": "95"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.12: Request transition table",
+  "page": "97"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.13: Indexes and their justification",
+  "page": "99"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.14: Migrations",
+  "page": "100"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.15: Input form specifications",
+  "page": "102"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.16: Output response shapes",
+  "page": "105"
+ },
+ {
+  "cls": "",
+  "title": "Table 4.17: Input and output design checklist",
+  "page": "107"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.1: Runtime and platform requirements",
+  "page": "109"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.2: Development tools",
+  "page": "110"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.3: Software requirements by deployment role",
+  "page": "111"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.4: Environment variables",
+  "page": "111"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.5: Development machine requirements",
+  "page": "112"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.6: Hardware used for development",
+  "page": "113"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.7: Server hardware for demonstration",
+  "page": "113"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.8: Language choices considered",
+  "page": "115"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.9: Backend dependencies",
+  "page": "116"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.10: Frontend dependencies",
+  "page": "117"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.11: Libraries considered and rejected",
+  "page": "118"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.12: Setup sequence",
+  "page": "120"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.13: Coding conventions",
+  "page": "121"
+ },
+ {
+  "cls": "",
+  "title": "Table 5.14: Non-functional requirements mapped to technology",
+  "page": "122"
+ },
+ {
+  "cls": "",
+  "title": "Table 6.1: Module responsibilities",
+  "page": "123"
+ },
+ {
+  "cls": "",
+  "title": "Table 6.2: Approximate source volume",
+  "page": "130"
+ },
+ {
+  "cls": "",
+  "title": "Table 6.3: Integration sequence across modules",
+  "page": "136"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.1: Test coverage by area",
+  "page": "138"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.2: Test objectives",
+  "page": "139"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.3: Test environment",
+  "page": "139"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.4: Test types and how each was applied",
+  "page": "141"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.5: Test suites",
+  "page": "143"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.6: Requirements traced to tests",
+  "page": "144"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.7: System test ST-1",
+  "page": "145"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.8: Adversarial attempts",
+  "page": "148"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.9: Observed response times",
+  "page": "151"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.10: Usability tasks and observations",
+  "page": "152"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.11: Acceptance criteria and outcome",
+  "page": "153"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.12: Browser compatibility matrix",
+  "page": "154"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.13: Recovery scenarios",
+  "page": "154"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.14: Defect register",
+  "page": "156"
+ },
+ {
+  "cls": "",
+  "title": "Table 7.15: Testing summary",
+  "page": "158"
+ },
+ {
+  "cls": "",
+  "title": "Table 8.1: Demonstrated claims",
+  "page": "160"
+ },
+ {
+  "cls": "",
+  "title": "Table 8.2: Deliberate exclusions",
+  "page": "163"
+ },
+ {
+  "cls": "",
+  "title": "Table 8.3: Implementation limitations",
+  "page": "163"
+ },
+ {
+  "cls": "",
+  "title": "Table 8.4: Near-term enhancements",
+  "page": "165"
+ }
+]

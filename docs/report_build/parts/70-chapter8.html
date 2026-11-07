@@ -1,0 +1,149 @@
+<div class="page">
+    <!--TOC:chapter:CHAPTER 8: CONCLUSION-->
+    <h1 class="chapter-title">CHAPTER 8<br>CONCLUSION</h1>
+
+    <!--TOC:sub:8.1 Conclusion-->
+    <h2>8.1 Conclusion</h2>
+    <p>This project set out to answer a narrow question: if a voter is allowed to vote somewhere other than their registered polling centre, what stops the remote act from changing the ballot they receive? The answer developed here is that nothing in the application has to stop it, because the structure does not permit it. A remote polling assignment names a centre and an election. It does not name a constituency, and no field exists in which one could be placed. The ballot is generated from a voter record that the remote workflow never writes. The choice is stored without a voter column, so the fact that a vote was cast and the fact of what was chosen live in two tables that share nothing but an election identifier.</p>
+    <p>The contribution is therefore not a new cryptographic protocol. Nothing in the sealing scheme is novel; AES-256-GCM with associated data is a standard construction, and the project uses it exactly as specified. The contribution is a demonstration that the organisational rule at the heart of remote voting can be enforced by data structure, and that the enforcement survives the ordinary pressures of implementation &mdash; the fourth defect in the register, D-12, is the project almost failing that test during its own design review, when a constituency column on the assignment looked like a reasonable convenience.</p>
+    <p>The simulator is complete within its scope. Five roles authenticate, a voter applies for a remote centre, an officer reviews and decides, an approved voter receives the ballot of their registered constituency at a different location, the ballot is sealed, the request is consumed, the election closes, reconciliation reports no discrepancy, and results are attributable to the correct constituency. Forty-nine automated cases and twenty adversarial attempts record that behaviour, along with ten defects found and fixed and two left open with reasons.</p>
+
+    <h3>8.1.1 What the Project Demonstrates</h3>
+    <!--TAB:8.1:Demonstrated claims-->
+    <table class="compact">
+        <tr><th style="width:6%;">#</th><th style="width:56%;">Claim</th><th>Evidence</th></tr>
+        <tr><td>1</td><td>The Core Rule is enforced by a function signature and two schema absences</td><td>Section 6.4.1; test in 7.4.2; ST-1 step 7</td></tr>
+        <tr><td>2</td><td>A duplicate ballot is impossible under concurrency</td><td>Section 6.2.3; concurrency test; A2</td></tr>
+        <tr><td>3</td><td>The choice cannot be read from any application output</td><td>Section 6.2.2; A10, A11</td></tr>
+        <tr><td>4</td><td>A sealed choice cannot be altered or transplanted</td><td>Associated data binding; A12, A13</td></tr>
+        <tr><td>5</td><td>Approval cannot exist without an assignment</td><td>Single transaction; INV-1; R1</td></tr>
+        <tr><td>6</td><td>Illegal transitions are refused in one place</td><td>Transition table; A16, A17</td></tr>
+        <tr><td>7</td><td>Authorization is deny-by-default on every route but one</td><td>Section 6.4.4; A5; defect D-3</td></tr>
+        <tr><td>8</td><td>A revoked session stops working immediately</td><td>Session re-read; A6</td></tr>
+    </table>
+    <p class="table-caption">Table 8.1: Demonstrated claims</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:8.2 Achievements-->
+    <h2>8.2 Achievements</h2>
+    <p>The achievements below are stated in terms of what exists and can be inspected, not in terms of effort.</p>
+    <p><b>A working system, not a prototype of screens.</b> All thirty-four documented routes are implemented and reachable, and every screen in Chapter 6 renders live data from the API. There are no hard-coded tables in the frontend; the demonstration in Figure 6.9 was produced by exercising the API, not by arranging an illustration.</p>
+    <p><b>Invariants that a reviewer can attack.</b> The unusual property of this project is that its central claims are falsifiable by anyone with a database client. A reviewer can attempt a second ballot, attempt an illegal transition, inspect the ballot table for a voter column and inspect the audit trail for a candidate identifier. Each attempt either fails or reveals a documented defect. That transparency is the achievement.</p>
+    <p><b>Constraints in the database rather than in the services.</b> Three of the five invariants in Section 4.7.6 are enforced by PostgreSQL rather than by application code, including one partial unique index that Prisma cannot express and whose absence would have been invisible in every single-user test.</p>
+    <p><b>A documented boundary between two data stores.</b> The separation of identity from choice is drawn in the schema, in the data flow diagrams, in the class model and in the entity-relationship model, and the same absence appears in all four.</p>
+    <p><b>An honest test record.</b> Forty-nine cases, five journeys, twenty adversarial attempts, four recovery scenarios and thirteen defects, including two that remain open and one accepted limitation.</p>
+    <p><b>A glossary that changed the code.</b> The ban on the word &ldquo;transfer&rdquo; is not decoration. It removed a class of identifier that would have encouraged exactly the mistake the project exists to prevent, because a variable named <code>transferredConstituency</code> invites a value to be assigned to it.</p>
+
+    <h3>8.2.1 What Was Learned</h3>
+    <p>Three lessons are worth recording, because each cost time and each changed the implementation.</p>
+    <p><b>A check that runs in application code is not a guarantee.</b> The first submission path read the voting status, decided there was none, and then wrote two rows. It passed every sequential test. The concurrency case showed that two requests could both read &ldquo;not voted&rdquo; and both write. The fix was not a lock in the service but a constraint in the database plus a guarded update, and the lesson generalises: if two requests can arrive together, the decision must be made by the store.</p>
+    <p><b>A convenience in a schema is a policy change.</b> D-12 was a single column that would have made the approval code shorter and the Core Rule unenforceable. The review question that caught it was not &ldquo;is this column needed&rdquo; but &ldquo;what would a developer naturally do with it&rdquo;.</p>
+    <p><b>Timing is a channel.</b> The uniform error body was implemented from the first version, and it was not sufficient: the unknown-username path returned before bcrypt ran. The dummy hash is three lines and closes a channel that no status-code review would have found.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:8.3 Limitations-->
+    <h2>8.3 Limitations</h2>
+    <p>The limitations are grouped into three kinds: what the design deliberately excludes, what the implementation does not yet do, and what the evidence does not establish. Naming the third kind is the part most reports omit.</p>
+
+    <h3>8.3.1 Excluded by Design</h3>
+    <!--TAB:8.2:Deliberate exclusions-->
+    <table class="compact">
+        <tr><th style="width:26%;">Exclusion</th><th>Consequence</th></tr>
+        <tr><td>No connection to a real electoral roll</td><td>Eligibility is simulated from seeded data; identity is not verified against any authority</td></tr>
+        <tr><td>No biometric or document verification</td><td>The system asserts that a voter number is a voter; a real system would establish this</td></tr>
+        <tr><td>No message gateway</td><td>The one-time code is returned in the API response and the server log, so the possession factor is not tested</td></tr>
+        <tr><td>No distributed consensus, no blockchain</td><td>There is no independent audit of the transcript; the database is the sole record</td></tr>
+        <tr><td>Single jurisdiction</td><td>No cross-border or multi-authority custody of keys is modelled</td></tr>
+    </table>
+    <p class="table-caption">Table 8.2: Deliberate exclusions</p>
+
+    <h3>8.3.2 Not Yet Implemented</h3>
+    <!--TAB:8.3:Implementation limitations-->
+    <table class="compact">
+        <tr><th style="width:26%;">Limitation</th><th>Effect and reference</th></tr>
+        <tr><td>Results route declares no role</td><td>Any authenticated caller reads aggregate results after closure. Defect D-3</td></tr>
+        <tr><td>Audit written after the commit</td><td>A transition that commits and then fails to log leaves no record. Defect D-9</td></tr>
+        <tr><td>Single encryption key, no rotation</td><td>Re-keying would require decrypting and re-sealing every ballot; no key identifier is stored with a ballot</td></tr>
+        <tr><td>In-process rate limiter</td><td>A second application instance doubles the effective limit. Defect D-13</td></tr>
+        <tr><td>No session expiry sweeper</td><td>Expired session rows are refused by the expiry check but never deleted</td></tr>
+        <tr><td>No pagination on the audit trail</td><td>A <code>limit</code> of up to 500 records, with no cursor</td></tr>
+        <tr><td>Tests share the development database</td><td>Suites tolerate seeded rows rather than running against an isolated database</td></tr>
+        <tr><td>No frontend test suite</td><td>A UI regression is caught only by manual inspection</td></tr>
+    </table>
+    <p class="table-caption">Table 8.3: Implementation limitations</p>
+
+    <h3>8.3.3 What the Evidence Does Not Establish</h3>
+    <p><b>The system is not secure against an attacker holding both the database and the key.</b> With both, every ballot can be decrypted, and the separation of the two tables provides no protection. The design reduces exposure by requiring two distinct compromises rather than one; it does not eliminate the possibility. A production system would place the key in hardware, split it between authorities, or use a threshold scheme &mdash; all of which are outside this project&rsquo;s scope and none of which the report claims.</p>
+    <p><b>The system has not been audited.</b> The cryptographic choices follow NIST SP 800-38D and the operational rules in the project&rsquo;s threat model, but no independent review of the implementation has taken place. The test suite demonstrates that the code does what the author intended, which is not the same as demonstrating that what the author intended is correct.</p>
+    <p><b>The performance figures describe one user.</b> Section 7.7 reports sequential timings on a development machine. Nothing in this report supports a claim about behaviour under concurrent load, and the in-process rate limiter means such a claim could not be made without a shared store first.</p>
+    <p><b>The usability evidence is five participants.</b> Section 7.8 reports four tasks performed by five people, one of whom was the project guide. That is enough to find an obvious misunderstanding, which it did, and not enough to support a claim of usability.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:8.4 Future Enhancements-->
+    <h2>8.4 Future Enhancements</h2>
+    <p>The enhancements are ordered by the ratio of benefit to effort, not by ambition. The first four are small and would close recorded gaps; the later ones are substantial and are stated as directions rather than as commitments.</p>
+
+    <h3>8.4.1 Near-Term</h3>
+    <!--TAB:8.4:Near-term enhancements-->
+    <table class="compact">
+        <tr><th style="width:6%;">#</th><th style="width:34%;">Enhancement</th><th>Rationale and expected effort</th></tr>
+        <tr><td>E1</td><td>Add <code>requireRole('ELECTION_ADMINISTRATOR','SYSTEM_AUDITOR')</code> to the results route</td><td>Closes D-3. One line and one test</td></tr>
+        <tr><td>E2</td><td>Write the audit record inside the transition transaction</td><td>Closes D-9 in the direction of completeness. Pass the transaction client to <code>auditService</code>. Half a day</td></tr>
+        <tr><td>E3</td><td>Store a key identifier alongside each sealed ballot</td><td>Makes key rotation possible without guessing which key sealed a row. Two days with a migration</td></tr>
+        <tr><td>E4</td><td>Move the rate limiter to a shared store</td><td>Closes D-13 and permits a second instance. One day</td></tr>
+        <tr><td>E5</td><td>Add a scheduled job to delete expired sessions and challenges</td><td>Housekeeping that the current design leaves to the expiry checks. Half a day</td></tr>
+        <tr><td>E6</td><td>Cursor pagination on the audit trail</td><td>Required before the trail exceeds a few thousand records. One day</td></tr>
+        <tr><td>E7</td><td>A separate test database, reset between runs</td><td>Removes the constraint that suites tolerate seeded rows. One day</td></tr>
+        <tr><td>E8</td><td>An end-to-end suite for the four voter journeys</td><td>The most valuable missing evidence. Two to three days with Playwright</td></tr>
+    </table>
+    <p class="table-caption">Table 8.4: Near-term enhancements</p>
+
+    <h3>8.4.2 Medium-Term</h3>
+    <p><b>Threshold decryption.</b> Split the ballot key between the election administrator, the auditor and an independent authority, so that counting requires two of three. This is the single change that would most improve the security story, because it removes the &ldquo;one key opens everything&rdquo; property that Section 8.3.3 identifies as the main weakness. Shamir secret sharing over the existing key, with the shares held outside the application, would be a reasonable first implementation.</p>
+    <p><b>Verifiable receipts.</b> A voter currently receives an opaque reference that proves nothing. A receipt that commits to the sealed ballot &mdash; for instance a hash of the reference, election and ciphertext &mdash; would let a voter confirm after counting that their ballot was included, without revealing what it contained. This is the property that end-to-end verifiable systems such as Helios and ElectionGuard provide, and it is the most commonly requested feature in any discussion of remote voting.</p>
+    <p><b>Append-only audit with chaining.</b> Each audit record would carry a hash of its predecessor, so that a deleted or altered record breaks the chain. The current trail is append-only by convention; chaining would make tampering detectable rather than merely prohibited.</p>
+
+    <h3>8.4.3 Long-Term</h3>
+    <p><b>A real identity integration.</b> Replacing the simulated voter number with an authenticated assertion from an electoral authority is the change that would turn a simulator into a candidate system, and it is also the change that would require the legal, operational and privacy work that this project deliberately excludes.</p>
+    <p><b>Accessibility conformance.</b> The interface has not been tested with a screen reader. Conformance to WCAG 2.2 at level AA would be a requirement for any public deployment and would change the ballot screen substantially.</p>
+    <p><b>Multi-election operation.</b> The current design assumes a single open election, enforced by <code>findOpenElection</code>. Supporting several concurrent elections would require the election to be chosen explicitly in every voter-facing route, which is a change to the API surface rather than to the schema.</p>
+    <p><b>An independent security review.</b> Before any use beyond demonstration, the sealing scheme, the key handling and the audit design should be reviewed by someone other than their author. This is listed last because it is the most important.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:8.5 Social Impact-->
+    <h2>8.5 Social Impact</h2>
+    <p>Remote voting is not a neutral technical convenience. It changes who can vote, and it changes what a citizen must trust. A report that described only the engineering would be incomplete, so this section states the social case and the social risks in the same place.</p>
+
+    <h3>8.5.1 The Case For</h3>
+    <p><b>Migrant and seasonal workers.</b> India&rsquo;s internal migration is large and its election-day travel burden falls hardest on the poorest. A worker who cannot afford to return to a home constituency for a day effectively loses the franchise. A remote centre within reach addresses this without changing the constituency arithmetic.</p>
+    <p><b>Students and posted employees.</b> The same argument applies to anyone resident elsewhere during a poll, including students in hostels and public servants under posting.</p>
+    <p><b>Voters with reduced mobility, and older voters.</b> A nearer centre reduces the journey, and in a fuller implementation it could reduce the assistance required at the polling station &mdash; assistance which is itself a source of coercion risk.</p>
+    <p><b>Election-day disruption.</b> Where a poll is disrupted by weather, unrest or a technical failure at one centre, a voter assigned elsewhere has an alternative that does not require the poll to be re-run.</p>
+
+    <h3>8.5.2 The Case For Caution</h3>
+    <p>The same feature carries risks that a simulator does not experience. <b>Coercion moves into the home.</b> A voter who can vote from a nearby centre, and in a fuller system from anywhere, can be accompanied, observed or instructed in a way that a supervised polling station makes difficult. <b>Family voting</b> is a documented problem in systems that allow voting outside a booth. <b>Trust shifts to the operator.</b> A paper ballot can be recounted by hand by anyone; a sealed electronic ballot can be counted only by whoever holds the key, which is why Section 8.4.2 puts threshold decryption and verifiable receipts ahead of any other enhancement.</p>
+    <p>The design in this project reduces one specific risk &mdash; the risk that the remote act changes the ballot &mdash; and is silent on the others. Being explicit about that silence is more useful than claiming a general improvement to electoral integrity.</p>
+
+    <h3>8.5.3 Ethical Position Taken</h3>
+    <p>Three commitments shaped the project. <b>No claim beyond the evidence.</b> The report does not describe the system as secure, verifiable or auditable without qualification; it describes what is enforced, what is tested and what is not. <b>No real data.</b> Every voter, officer and candidate is fictional, and no real voter roll, address or identifier was used at any stage. <b>No concealed limitation.</b> The two open defects, the accepted limitation and the three evidentiary gaps are recorded in the same document as the achievements, because a report that hid them would be less useful to the next person who builds on it.</p>
+    <div class="page-number">{{PN}}</div>
+</div>
+
+<div class="page">
+    <!--TOC:sub:8.6 Final Remarks-->
+    <h2>8.6 Final Remarks</h2>
+    <p>The project began with a sentence from a specification: <i>a remote polling centre changes where a voter votes, never their registered constituency or ballot</i>. That sentence could have been implemented as a validation rule in a service, tested with a case that passes a wrong constituency and expects a refusal, and documented as a requirement satisfied. It would have taken an afternoon.</p>
+    <p>What this project did instead was to ask what would have to be true for the sentence to hold without being checked. The answer was a set of absences: no constituency on the assignment, no voter on the ballot, no centre in the ballot generator&rsquo;s signature, and no relation between the two tables. Absences are harder to review than assertions, because there is nothing to point at. They are also harder to break by accident, which is why they were worth the effort.</p>
+    <p>The work also produced evidence that the effort was needed. In its own design review the project nearly added the constituency column that would have undone the rule, and it did so for the ordinary reason that the approval code would have been shorter. That near-miss &mdash; recorded as D-12 &mdash; is the most honest thing in this report, because it shows that the rule is not obvious and that a careful designer can drift towards violating it while solving a different problem.</p>
+    <p>Two limitations remain open, and the report says so. The results route is under-guarded, which is a one-line fix that the project did not make before writing this page. The audit record is written after the commit, which prefers consistency of state to completeness of the log. Neither is difficult to repair; both are recorded because a limitation that is written down is a limitation that someone will fix, and one that is omitted is one that will be discovered by an examiner instead.</p>
+    <p>As a college project, the deliverable is a working application, a design that can be inspected, a test record that can be attacked, and a document that states its own boundaries. As a contribution to the discussion of remote voting, the deliverable is a small demonstration of a general idea: that the organisational rule at the centre of an electoral process can be made structural, and that making it structural is a different and stronger thing than making it a requirement.</p>
+    <div class="page-number">{{PN}}</div>
+</div>

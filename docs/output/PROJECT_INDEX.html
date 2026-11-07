@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROJECT INDEX — VOTE ANYWHERE: A Remote Polling System Simulator for Geographically Mobile Voters</title>
+<style>
+/* ==========================================================================
+   Vote Anywhere — BCA Project Report stylesheet
+   Format matched to sample_docs/sample_documentation.html (SRM-DDE BCA).
+   A4, Times New Roman 12pt, justified, roman front matter, arabic body.
+   ========================================================================== */
+
+@page {
+    size: A4;
+    margin: 0;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    line-height: 1.6;
+    color: #000;
+    background: #fff;
+    text-align: justify;
+}
+
+.page {
+    width: 210mm;
+    min-height: 297mm;
+    height: 297mm;
+    margin: 0 auto;
+    padding: 20mm 20mm 25mm 25mm;
+    background: #fff;
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-number {
+    position: absolute;
+    bottom: 12mm;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 11pt;
+}
+
+.roman-page .page-number {
+    font-style: italic;
+}
+
+/* ---------- Front page ---------- */
+
+.front-page {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+}
+
+.front-page * {
+    text-align: center;
+}
+
+.front-page h1 {
+    font-size: 16pt;
+    font-weight: bold;
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+.front-page .subtitle {
+    font-size: 13pt;
+    margin-bottom: 6px;
+    line-height: 1.5;
+}
+
+.front-page .degree {
+    font-size: 15pt;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.front-page .by {
+    font-size: 13pt;
+    margin: 12px 0 3px;
+    font-weight: bold;
+}
+
+.front-page .name {
+    font-size: 14pt;
+    font-weight: bold;
+    margin: 3px 0;
+}
+
+.front-page .reg {
+    font-size: 12pt;
+    margin-bottom: 12px;
+}
+
+.front-page .guide-section {
+    font-size: 12pt;
+    margin: 10px 0;
+    line-height: 1.5;
+}
+
+.front-page .dept {
+    font-size: 12pt;
+    font-weight: bold;
+    margin-top: 15px;
+    line-height: 1.5;
+}
+
+.front-page .university {
+    font-size: 11pt;
+    margin-top: 3px;
+}
+
+.front-page .date {
+    font-size: 13pt;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.front-page .emblem {
+    width: 58mm;
+    height: 58mm;
+    margin: 6mm auto 4mm;
+    border: 1.5pt solid #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    font-family: 'Times New Roman', Times, serif;
+}
+
+.emblem .emblem-top {
+    font-size: 9pt;
+    font-weight: bold;
+    letter-spacing: 0.6pt;
+}
+
+.emblem .emblem-mid {
+    font-size: 20pt;
+    font-weight: bold;
+    letter-spacing: 1pt;
+    margin: 1mm 0;
+}
+
+.emblem .emblem-bot {
+    font-size: 7.5pt;
+    line-height: 1.25;
+}
+
+/* ---------- Certificate and declaration pages ---------- */
+
+.cert-page {
+    text-align: center;
+}
+
+.cert-page h2 {
+    font-size: 16pt;
+    text-decoration: underline;
+    margin-bottom: 25px;
+}
+
+.cert-page p {
+    text-align: justify;
+    margin-bottom: 15px;
+    font-size: 13pt;
+}
+
+.signatures {
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.sig-block {
+    text-align: center;
+    font-size: 12pt;
+    line-height: 1.6;
+    width: 45%;
+}
+
+/* ---------- Headings and body text ---------- */
+
+h1.chapter-title {
+    font-size: 16pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 18px;
+    text-transform: uppercase;
+    line-height: 1.4;
+}
+
+h1 {
+    font-size: 16pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+}
+
+h2 {
+    font-size: 14pt;
+    font-weight: bold;
+    margin-top: 18px;
+    margin-bottom: 9px;
+    text-align: left;
+}
+
+h3 {
+    font-size: 12pt;
+    font-weight: bold;
+    margin-top: 13px;
+    margin-bottom: 7px;
+    text-align: left;
+}
+
+h4 {
+    font-size: 12pt;
+    font-weight: bold;
+    font-style: italic;
+    margin-top: 10px;
+    margin-bottom: 6px;
+    text-align: left;
+}
+
+p {
+    text-align: justify;
+    margin-bottom: 9px;
+    text-indent: 40px;
+}
+
+p.no-indent {
+    text-indent: 0;
+}
+
+ul,
+ol {
+    margin: 7px 0 11px 40px;
+}
+
+li {
+    margin-bottom: 4px;
+    text-align: justify;
+}
+
+ul.tight li,
+ol.tight li {
+    margin-bottom: 2px;
+}
+
+/* ---------- Tables ---------- */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 9px 0;
+    font-size: 10.5pt;
+}
+
+table th,
+table td {
+    border: 1px solid #000;
+    padding: 4px 7px;
+    text-align: justify;
+    vertical-align: top;
+}
+
+table th {
+    background: #f0f0f0;
+    font-weight: bold;
+    text-align: center;
+}
+
+table.compact th,
+table.compact td {
+    padding: 3px 5px;
+    font-size: 9.5pt;
+}
+
+table.tiny th,
+table.tiny td {
+    padding: 2px 4px;
+    font-size: 8.5pt;
+}
+
+table.plain,
+table.plain td,
+table.plain th {
+    border: none;
+}
+
+table.center td,
+table.center th {
+    text-align: center;
+}
+
+/* ---------- Code ---------- */
+
+code {
+    font-family: 'Courier New', monospace;
+    font-size: 10.5pt;
+}
+
+pre {
+    font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+    font-size: 8pt;
+    line-height: 1.28;
+    margin: 7px 0;
+    padding: 6px 8px;
+    border: 0.5pt solid #999;
+    background: #fafafa;
+    overflow-x: hidden;
+    white-space: pre;
+    letter-spacing: 0;
+    text-align: left;
+    text-indent: 0;
+}
+
+pre.code-block {
+    font-size: 7.6pt;
+    line-height: 1.25;
+}
+
+/* ---------- Table of contents ---------- */
+
+.toc-entry {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 3px;
+    font-size: 11.5pt;
+    text-indent: 0;
+}
+
+.toc-entry .toc-title {
+    white-space: nowrap;
+}
+
+.toc-entry .toc-dots {
+    flex: 1;
+    border-bottom: 1px dotted #000;
+    margin: 0 5px;
+    min-width: 20px;
+}
+
+.toc-entry .toc-page {
+    white-space: nowrap;
+}
+
+.toc-entry.chapter {
+    font-weight: bold;
+    margin-top: 9px;
+}
+
+.toc-entry.sub {
+    padding-left: 25px;
+}
+
+.toc-entry.subsub {
+    padding-left: 50px;
+}
+
+/* ---------- Figures ---------- */
+
+.figure-box {
+    border: none;
+    padding: 6px;
+    margin: 8px 0;
+    text-align: left;
+    font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+    font-size: 8pt;
+    white-space: pre;
+    overflow-x: hidden;
+    letter-spacing: 0;
+    line-height: 1.25;
+    text-indent: 0;
+}
+
+.figure-caption {
+    text-align: center;
+    font-size: 10.5pt;
+    font-weight: bold;
+    margin: 6px 0 12px;
+    text-indent: 0;
+}
+
+.table-caption {
+    text-align: center;
+    font-size: 10.5pt;
+    font-weight: bold;
+    margin: 10px 0 4px;
+    text-indent: 0;
+}
+
+/* ---------- Screenshot mock-ups ---------- */
+
+.screenshot {
+    border: 1.5pt solid #333;
+    margin: 9px 0;
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8.5pt;
+    text-align: left;
+    padding: 0;
+    text-indent: 0;
+}
+
+.screenshot .navbar {
+    background: #343a40;
+    color: #fff;
+    padding: 5px 10px;
+    font-size: 9pt;
+    display: flex;
+    justify-content: space-between;
+    text-indent: 0;
+}
+
+.screenshot .navbar .brand {
+    font-weight: bold;
+}
+
+.screenshot .navbar .navlinks {
+    color: #adb5bd;
+}
+
+.screenshot .sidebar {
+    background: #f1f3f5;
+    border-right: 0.5pt solid #ced4da;
+    padding: 8px 10px;
+    font-size: 8pt;
+    width: 34mm;
+    float: left;
+    min-height: 62mm;
+    text-indent: 0;
+}
+
+.screenshot .sidebar .menu-label {
+    font-size: 6.5pt;
+    letter-spacing: 0.8pt;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+
+.screenshot .sidebar .menu-item {
+    padding: 2px 0;
+    color: #343a40;
+}
+
+.screenshot .sidebar .menu-item.active {
+    font-weight: bold;
+    color: #0b2545;
+}
+
+.screenshot .body {
+    margin-left: 34mm;
+    padding: 8px 12px;
+    text-indent: 0;
+}
+
+.screenshot .page-title {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #0b2545;
+    margin-bottom: 2px;
+}
+
+.screenshot .page-sub {
+    font-size: 8pt;
+    color: #6c757d;
+    margin-bottom: 7px;
+}
+
+.screenshot .statrow {
+    display: flex;
+    gap: 6px;
+    margin: 6px 0;
+}
+
+.screenshot .stat {
+    border: 0.5pt solid #ced4da;
+    padding: 4px 7px;
+    flex: 1;
+    text-indent: 0;
+}
+
+.screenshot .stat .k {
+    font-size: 6.5pt;
+    color: #6c757d;
+    letter-spacing: 0.4pt;
+}
+
+.screenshot .stat .v {
+    font-size: 13pt;
+    font-weight: bold;
+    color: #0b2545;
+}
+
+.screenshot .btn {
+    display: inline-block;
+    padding: 2px 9px;
+    border: 0.75pt solid #333;
+    margin: 2px 2px 2px 0;
+    font-size: 7.5pt;
+    text-indent: 0;
+}
+
+.screenshot .btn-primary {
+    background: #0b2545;
+    color: #fff;
+    border-color: #0b2545;
+}
+
+.screenshot .card {
+    border: 0.5pt solid #dee2e6;
+    padding: 6px 8px;
+    margin: 5px 0;
+    text-indent: 0;
+}
+
+.screenshot .form-group {
+    margin: 4px 0;
+    text-indent: 0;
+}
+
+.screenshot .form-group label {
+    display: inline-block;
+    width: 32mm;
+    font-weight: bold;
+    font-size: 7.5pt;
+}
+
+.screenshot .form-control {
+    border: 0.5pt solid #ced4da;
+    padding: 1px 5px;
+    width: 55mm;
+    display: inline-block;
+    font-size: 7.5pt;
+    color: #495057;
+}
+
+.screenshot .badge {
+    background: #198754;
+    color: #fff;
+    padding: 1px 5px;
+    font-size: 6.5pt;
+}
+
+.screenshot .badge.warn {
+    background: #b02a37;
+}
+
+.screenshot .badge.info {
+    background: #0d6efd;
+}
+
+.screenshot .badge.grey {
+    background: #6c757d;
+}
+
+.screenshot .row {
+    display: flex;
+    gap: 6px;
+}
+
+.screenshot .col {
+    flex: 1;
+}
+
+.screenshot .muted {
+    color: #6c757d;
+    font-size: 7.5pt;
+}
+
+.screenshot .divider {
+    border-top: 0.5pt solid #dee2e6;
+    margin: 6px 0;
+}
+
+.screenshot table {
+    font-size: 7.5pt;
+    margin: 4px 0;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.screenshot table th,
+.screenshot table td {
+    padding: 2px 4px;
+    text-align: left;
+}
+
+.screenshot table th {
+    background: #f1f3f5;
+}
+
+.screenshot .stepper {
+    display: flex;
+    gap: 3px;
+    margin: 6px 0;
+}
+
+.screenshot .step {
+    flex: 1;
+    border-top: 2pt solid #ced4da;
+    padding-top: 3px;
+    font-size: 6.5pt;
+    text-indent: 0;
+}
+
+.screenshot .step.done {
+    border-top-color: #198754;
+}
+
+.screenshot .step.current {
+    border-top-color: #0d6efd;
+    font-weight: bold;
+}
+
+.screenshot .ballot-option {
+    border: 0.75pt solid #ced4da;
+    padding: 5px 8px;
+    margin: 4px 0;
+    display: flex;
+    justify-content: space-between;
+    text-indent: 0;
+}
+
+.screenshot .ballot-option.selected {
+    border-color: #0b2545;
+    background: #eef2f7;
+    font-weight: bold;
+}
+
+/* ---------- Callouts ---------- */
+
+.note {
+    border-left: 3pt solid #444;
+    background: #f7f7f7;
+    padding: 7px 10px;
+    margin: 9px 0;
+    font-size: 10.5pt;
+    text-indent: 0;
+}
+
+.note .note-label {
+    font-weight: bold;
+    font-variant: small-caps;
+}
+
+.quote {
+    margin: 9px 40px;
+    font-style: italic;
+    font-size: 11pt;
+    text-indent: 0;
+}
+
+.keypoint {
+    border: 0.75pt solid #000;
+    padding: 8px 12px;
+    margin: 10px 0;
+    text-align: center;
+    font-weight: bold;
+    font-size: 11.5pt;
+    text-indent: 0;
+}
+
+/* ---------- Misc ---------- */
+
+.center {
+    text-align: center;
+    text-indent: 0;
+}
+
+.small {
+    font-size: 10pt;
+}
+
+.tiny-text {
+    font-size: 9pt;
+}
+
+.right {
+    text-align: right;
+}
+
+.bold {
+    font-weight: bold;
+}
+
+.mono {
+    font-family: 'Courier New', monospace;
+    font-size: 10pt;
+}
+
+.spacer-sm {
+    height: 6mm;
+}
+
+.spacer-md {
+    height: 14mm;
+}
+
+.spacer-lg {
+    height: 28mm;
+}
+
+.page-break-avoid {
+    page-break-inside: avoid;
+}
+
+hr {
+    border: none;
+    border-top: 0.75pt solid #000;
+    margin: 10px 0;
+}
+
+hr.thin {
+    border-top: 0.4pt solid #999;
+}
+
+/* ---------- Print / screen ---------- */
+
+@media print {
+    .page {
+        margin: 0;
+    }
+    body {
+        background: #fff;
+    }
+    pre {
+        page-break-inside: avoid;
+    }
+    .screenshot {
+        page-break-inside: avoid;
+    }
+}
+
+@media screen {
+    body {
+        background: #e9ecef;
+        padding: 8px 0;
+    }
+    .page {
+        box-shadow: 0 1px 5px rgba(0, 0, 0, .2);
+        margin-bottom: 10px;
+    }
+}
+
+/* project-index specific */
+.idx-table { width:100%; border-collapse:collapse; font-size:10.5pt; }
+.idx-table td { padding:2.5pt 4pt; vertical-align:top; border-bottom:0.3pt dotted #bbb; }
+.idx-head td { font-weight:bold; background:#e8edf3; border-bottom:0.6pt solid #8a97a8;
+                padding-top:6pt; padding-bottom:3pt; letter-spacing:0.2pt; }
+.idx-name { width:46%; }
+.idx-sub { width:46%; padding-left:20pt !important; }
+.idx-page { width:14%; text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.idx-note { width:40%; font-size:8.5pt; color:#555; font-style:italic; }
+.summary-table { width:100%; border-collapse:collapse; font-size:9.5pt; margin-top:4pt; }
+.summary-table th, .summary-table td { border:0.4pt solid #9aa7b6; padding:3pt 5pt; }
+.summary-table th { background:#e8edf3; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="front-page" style="justify-content:center;">
+    <div class="uni">SRM INSTITUTE OF SCIENCE AND TECHNOLOGY</div>
+    <div class="dept">(Under the guidance of Dr. A. Thirumurthi Raja)<br>Department of Computer Applications</div>
+    <div class="rule"></div>
+    <div style="font-size:19pt;font-weight:bold;letter-spacing:0.4pt;">PROJECT INDEX</div>
+    <div style="font-size:12pt;margin-top:2pt;">Table of Contents with Page Ranges</div>
+    <div class="rule"></div>
+    <div class="proj-title" style="font-size:14pt;">VOTE ANYWHERE<br>A REMOTE POLLING SYSTEM SIMULATOR<br>FOR GEOGRAPHICALLY MOBILE VOTERS</div>
+    <div class="rule"></div>
+    <table style="margin:0 auto;font-size:11pt;border-collapse:collapse;">
+      <tr><td style="text-align:right;padding:2pt 8pt;color:#555;">Submitted by</td><td style="padding:2pt 8pt;"><b>KARPAGA SELVAM S</b></td></tr>
+      <tr><td style="text-align:right;padding:2pt 8pt;color:#555;">Register Number</td><td style="padding:2pt 8pt;"><b>DC2431006010014</b></td></tr>
+      <tr><td style="text-align:right;padding:2pt 8pt;color:#555;">Degree</td><td style="padding:2pt 8pt;">Bachelor of Computer Applications (BCA)</td></tr>
+      <tr><td style="text-align:right;padding:2pt 8pt;color:#555;">Month and Year</td><td style="padding:2pt 8pt;">NOVEMBER 2026</td></tr>
+    </table>
+  </div>
+  <div class="page-number">i</div>
+</div>
+
+<div class="page">
+  <h1>PROJECT INDEX</h1>
+  <p style="text-align:justify;margin-bottom:8pt;">This index states the page range occupied by every chapter, section and appendix of the accompanying project report, <i>VOTE ANYWHERE: A Remote Polling System Simulator for Geographically Mobile Voters</i>. The page numbers are those printed in the report itself: preliminary pages carry roman numerals and the chapters carry arabic numerals beginning at 1. The final report runs to <b>200 pages</b>, of which <b>16</b> are preliminary and <b>184</b> are numbered.</p>
+
+  <table class="summary-table">
+    <tr><th style="width:44%;">Component</th><th style="width:22%;">Extent</th><th>Pages</th></tr>
+    <tr><td>Preliminary pages (roman i&ndash;xvi)</td><td>Nine items</td><td>16</td></tr>
+    <tr><td>Chapters 1 to 8</td><td>Eight chapters, 62 sections</td><td>158 (pp. 1&ndash;169)</td></tr>
+    <tr><td>References</td><td>28 entries</td><td>4 (pp. 170&ndash;173)</td></tr>
+    <tr><td>Appendices A&ndash;D</td><td>Four appendices</td><td>13 (pp. 174&ndash;186)</td></tr>
+    <tr><td><b>Total</b></td><td></td><td><b>200</b></td></tr>
+  </table>
+
+  <h2 style="margin-top:14pt;">Index of Chapters and Sections</h2>
+  <table class="idx-table">
+<tr class="idx-head"><td>PRELIMINARY PAGES</td><td class="idx-page">i &ndash; xvi</td><td class="idx-note">Roman numerals</td></tr>
+<tr><td class="idx-name">Title Page</td><td class="idx-page">i</td><td class="idx-note">Project title, degree, candidate, guide, institution</td></tr>
+<tr><td class="idx-name">Bonafide Certificate</td><td class="idx-page">ii</td><td class="idx-note">Certification by the Head of the Department</td></tr>
+<tr><td class="idx-name">Declaration</td><td class="idx-page">iii</td><td class="idx-note">Candidate's declaration of original work</td></tr>
+<tr><td class="idx-name">Acknowledgement</td><td class="idx-page">iv</td><td class="idx-note">Thanks to guide, faculty and family</td></tr>
+<tr><td class="idx-name">Abstract</td><td class="idx-page">v&ndash;vi</td><td class="idx-note">Two-page summary of problem, method and result</td></tr>
+<tr><td class="idx-name">Table of Contents</td><td class="idx-page">vii&ndash;ix</td><td class="idx-note">Three pages, chapters and sections with page numbers</td></tr>
+<tr><td class="idx-name">List of Figures</td><td class="idx-page">x</td><td class="idx-note">24 figures with page numbers</td></tr>
+<tr><td class="idx-name">List of Tables</td><td class="idx-page">xi&ndash;xiii</td><td class="idx-note">72 tables across three pages</td></tr>
+<tr><td class="idx-name">List of Abbreviations</td><td class="idx-page">xiv&ndash;xvi</td><td class="idx-note">Alphabetical list of every acronym used</td></tr>
+<tr class="idx-head"><td>CHAPTER 1: INTRODUCTION</td><td class="idx-page">1 &ndash; 20</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">1.1 Overview of the Project</td><td class="idx-page">1</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">1.2 Background of the Study</td><td class="idx-page">4</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">1.3 Problem Statement</td><td class="idx-page">7</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">1.4 Objectives of the Project</td><td class="idx-page">10</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">1.5 Scope of the Project</td><td class="idx-page">12</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">1.6 Project Motivation</td><td class="idx-page">15</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">1.7 Assumptions and Constraints</td><td class="idx-page">17</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">1.8 Organization of the Report</td><td class="idx-page">19</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>CHAPTER 2: LITERATURE REVIEW</td><td class="idx-page">21 &ndash; 37</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">2.1 Introduction</td><td class="idx-page">21</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">2.2 Review of Existing Systems</td><td class="idx-page">22</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">2.3 Comparative Study of Related Work</td><td class="idx-page">31</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">2.4 Research Gaps Identified</td><td class="idx-page">34</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">2.5 Summary of Literature Review</td><td class="idx-page">37</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>CHAPTER 3: SYSTEM ANALYSIS</td><td class="idx-page">38 &ndash; 69</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">3.1 Existing System Analysis</td><td class="idx-page">38</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">3.2 Limitations of Existing System</td><td class="idx-page">42</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">3.3 Proposed System</td><td class="idx-page">45</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">3.4 Advantages of Proposed System</td><td class="idx-page">50</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">3.5 Feasibility Study</td><td class="idx-page">52</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">3.6 Software Requirement Specification</td><td class="idx-page">58</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>CHAPTER 4: SYSTEM DESIGN</td><td class="idx-page">70 &ndash; 108</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">4.1 Design Overview</td><td class="idx-page">70</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">4.2 System Architecture</td><td class="idx-page">72</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">4.3 Data Flow Diagrams</td><td class="idx-page">77</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">4.4 Use Case Diagram</td><td class="idx-page">80</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">4.5 Class Diagram</td><td class="idx-page">85</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">4.6 Entity Relationship Diagram</td><td class="idx-page">88</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">4.7 Database Design</td><td class="idx-page">93</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">4.8 Input and Output Design</td><td class="idx-page">101</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>CHAPTER 5: SOFTWARE AND HARDWARE REQUIREMENTS</td><td class="idx-page">109 &ndash; 122</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">5.1 Software Requirements</td><td class="idx-page">109</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">5.2 Hardware Requirements</td><td class="idx-page">113</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">5.3 Languages Used</td><td class="idx-page">114</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">5.4 Frameworks and Libraries</td><td class="idx-page">116</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">5.5 Development Environment</td><td class="idx-page">118</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>CHAPTER 6: IMPLEMENTATION</td><td class="idx-page">123 &ndash; 137</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">6.1 Module Description</td><td class="idx-page">123</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">6.2 Algorithms</td><td class="idx-page">124</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">6.3 Pseudocode of the State Machine</td><td class="idx-page">126</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">6.4 Code Snippets</td><td class="idx-page">128</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">6.5 Screenshots</td><td class="idx-page">131</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">6.6 Integration</td><td class="idx-page">136</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>CHAPTER 7: TESTING</td><td class="idx-page">138 &ndash; 158</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">7.1 Introduction to Testing</td><td class="idx-page">138</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">7.2 Objectives of Testing</td><td class="idx-page">139</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">7.3 Types of Testing Applied</td><td class="idx-page">141</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">7.4 Test Suites and Results</td><td class="idx-page">143</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">7.5 System Testing</td><td class="idx-page">145</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">7.6 Security Testing</td><td class="idx-page">147</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">7.7 Performance Testing</td><td class="idx-page">150</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">7.8 User Acceptance Testing</td><td class="idx-page">152</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">7.9 Browser Compatibility</td><td class="idx-page">154</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">7.10 Recovery Testing</td><td class="idx-page">154</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">7.11 Defects Found and Fixed</td><td class="idx-page">155</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">7.12 Test Summary</td><td class="idx-page">158</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>CHAPTER 8: CONCLUSION</td><td class="idx-page">159 &ndash; 169</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">8.1 Conclusion</td><td class="idx-page">159</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">8.2 Achievements</td><td class="idx-page">161</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">8.3 Limitations</td><td class="idx-page">163</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">8.4 Future Enhancements</td><td class="idx-page">165</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">8.5 Social Impact</td><td class="idx-page">167</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">8.6 Final Remarks</td><td class="idx-page">169</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>REFERENCES</td><td class="idx-page">170 &ndash; 173</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>APPENDIX A: DATA DICTIONARY</td><td class="idx-page">174 &ndash; 178</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>APPENDIX B: API REFERENCE</td><td class="idx-page">179 &ndash; 180</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>APPENDIX C: CODE LISTINGS</td><td class="idx-page">181 &ndash; 182</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>APPENDIX D: TEST CASE INDEX</td><td class="idx-page">183 &ndash; 169</td><td class="idx-note"></td></tr>
+<tr class="idx-head"><td>APPENDICES</td><td class="idx-page">174 &ndash; 186</td><td class="idx-note">Four appendices</td></tr>
+<tr><td class="idx-sub">APPENDIX A: Data Dictionary</td><td class="idx-page">174</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">APPENDIX B: API Reference</td><td class="idx-page">179</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">APPENDIX C: Code Listings</td><td class="idx-page">181</td><td class="idx-note"></td></tr>
+<tr><td class="idx-sub">APPENDIX D: Test Case Index</td><td class="idx-page">183</td><td class="idx-note"></td></tr>
+  </table>
+  <div class="page-number">ii</div>
+</div>
+
+<div class="page">
+  <h1>LIST OF FIGURES AND TABLES</h1>
+  <p>The report contains <b>24 figures</b> and <b>72 tables</b>. The complete lists with page numbers appear on pages x to xiii. Figures are numbered by chapter; diagrams drawn as monospaced layouts are rendered inside ruled figure boxes so that they scale with the page.</p>
+  <table class="idx-table">
+    <tr class="idx-head"><td>Figure range</td><td class="idx-page" style="text-align:left;">Chapter and subject</td></tr>
+    <tr><td class="idx-name">2.1</td><td>Research gaps and the mechanisms that address them</td></tr>
+    <tr><td class="idx-name">3.1</td><td>System boundary of the proposed system</td></tr>
+    <tr><td class="idx-name">4.1 &ndash; 4.13</td><td>Architecture, three levels of data flow, use cases, class, ER, two state machines, ballot and dashboard output design</td></tr>
+    <tr><td class="idx-name">6.1 &ndash; 6.9</td><td>Nine application screens: sign-in, code entry, voter dashboard, eligibility, request form, review queue, verification, administration, reconciliation</td></tr>
+    <tr class="idx-head"><td>Table range</td><td style="text-align:left;">Chapter and subject</td></tr>
+    <tr><td class="idx-name">2.1 &ndash; 2.5</td><td>Postal versus remote balloting, existing systems, comparative study, gaps, summary</td></tr>
+    <tr><td class="idx-name">3.1 &ndash; 3.14</td><td>Existing processes, limitations, proposed system, requirements catalogue, feasibility</td></tr>
+    <tr><td class="idx-name">4.1 &ndash; 4.17</td><td>Design constraints, monolith comparison, middleware, use case matrix, service collaborations, relations, worked Core Rule example, enums, tables, structures, transitions, indexes, migrations, input and output specifications</td></tr>
+    <tr><td class="idx-name">5.1 &ndash; 5.14</td><td>Runtimes, tools, roles, environment, machines, language and library choices, setup, conventions, traceability</td></tr>
+    <tr><td class="idx-name">6.1 &ndash; 6.3</td><td>Module responsibilities, source volume, integration sequence</td></tr>
+    <tr><td class="idx-name">7.1 &ndash; 7.15</td><td>Coverage, objectives, environment, types, suites, traceability, system tests, adversarial attempts, performance, usability, acceptance, browsers, recovery, defect register, summary</td></tr>
+    <tr><td class="idx-name">8.1 &ndash; 8.4</td><td>Demonstrated claims, exclusions, implementation limitations, enhancements</td></tr>
+  </table>
+  <div class="page-number">iii</div>
+</div>
+
+</body>
+</html>

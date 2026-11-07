@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FRONT PAGES — VOTE ANYWHERE: A Remote Polling System Simulator for Geographically Mobile Voters</title>
+<style>
+/* ==========================================================================
+   Vote Anywhere — BCA Project Report stylesheet
+   Format matched to sample_docs/sample_documentation.html (SRM-DDE BCA).
+   A4, Times New Roman 12pt, justified, roman front matter, arabic body.
+   ========================================================================== */
+
+@page {
+    size: A4;
+    margin: 0;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    line-height: 1.6;
+    color: #000;
+    background: #fff;
+    text-align: justify;
+}
+
+.page {
+    width: 210mm;
+    min-height: 297mm;
+    height: 297mm;
+    margin: 0 auto;
+    padding: 20mm 20mm 25mm 25mm;
+    background: #fff;
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-number {
+    position: absolute;
+    bottom: 12mm;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 11pt;
+}
+
+.roman-page .page-number {
+    font-style: italic;
+}
+
+/* ---------- Front page ---------- */
+
+.front-page {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+}
+
+.front-page * {
+    text-align: center;
+}
+
+.front-page h1 {
+    font-size: 16pt;
+    font-weight: bold;
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+.front-page .subtitle {
+    font-size: 13pt;
+    margin-bottom: 6px;
+    line-height: 1.5;
+}
+
+.front-page .degree {
+    font-size: 15pt;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.front-page .by {
+    font-size: 13pt;
+    margin: 12px 0 3px;
+    font-weight: bold;
+}
+
+.front-page .name {
+    font-size: 14pt;
+    font-weight: bold;
+    margin: 3px 0;
+}
+
+.front-page .reg {
+    font-size: 12pt;
+    margin-bottom: 12px;
+}
+
+.front-page .guide-section {
+    font-size: 12pt;
+    margin: 10px 0;
+    line-height: 1.5;
+}
+
+.front-page .dept {
+    font-size: 12pt;
+    font-weight: bold;
+    margin-top: 15px;
+    line-height: 1.5;
+}
+
+.front-page .university {
+    font-size: 11pt;
+    margin-top: 3px;
+}
+
+.front-page .date {
+    font-size: 13pt;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.front-page .emblem {
+    width: 58mm;
+    height: 58mm;
+    margin: 6mm auto 4mm;
+    border: 1.5pt solid #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    font-family: 'Times New Roman', Times, serif;
+}
+
+.emblem .emblem-top {
+    font-size: 9pt;
+    font-weight: bold;
+    letter-spacing: 0.6pt;
+}
+
+.emblem .emblem-mid {
+    font-size: 20pt;
+    font-weight: bold;
+    letter-spacing: 1pt;
+    margin: 1mm 0;
+}
+
+.emblem .emblem-bot {
+    font-size: 7.5pt;
+    line-height: 1.25;
+}
+
+/* ---------- Certificate and declaration pages ---------- */
+
+.cert-page {
+    text-align: center;
+}
+
+.cert-page h2 {
+    font-size: 16pt;
+    text-decoration: underline;
+    margin-bottom: 25px;
+}
+
+.cert-page p {
+    text-align: justify;
+    margin-bottom: 15px;
+    font-size: 13pt;
+}
+
+.signatures {
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.sig-block {
+    text-align: center;
+    font-size: 12pt;
+    line-height: 1.6;
+    width: 45%;
+}
+
+/* ---------- Headings and body text ---------- */
+
+h1.chapter-title {
+    font-size: 16pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 18px;
+    text-transform: uppercase;
+    line-height: 1.4;
+}
+
+h1 {
+    font-size: 16pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+}
+
+h2 {
+    font-size: 14pt;
+    font-weight: bold;
+    margin-top: 18px;
+    margin-bottom: 9px;
+    text-align: left;
+}
+
+h3 {
+    font-size: 12pt;
+    font-weight: bold;
+    margin-top: 13px;
+    margin-bottom: 7px;
+    text-align: left;
+}
+
+h4 {
+    font-size: 12pt;
+    font-weight: bold;
+    font-style: italic;
+    margin-top: 10px;
+    margin-bottom: 6px;
+    text-align: left;
+}
+
+p {
+    text-align: justify;
+    margin-bottom: 9px;
+    text-indent: 40px;
+}
+
+p.no-indent {
+    text-indent: 0;
+}
+
+ul,
+ol {
+    margin: 7px 0 11px 40px;
+}
+
+li {
+    margin-bottom: 4px;
+    text-align: justify;
+}
+
+ul.tight li,
+ol.tight li {
+    margin-bottom: 2px;
+}
+
+/* ---------- Tables ---------- */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 9px 0;
+    font-size: 10.5pt;
+}
+
+table th,
+table td {
+    border: 1px solid #000;
+    padding: 4px 7px;
+    text-align: justify;
+    vertical-align: top;
+}
+
+table th {
+    background: #f0f0f0;
+    font-weight: bold;
+    text-align: center;
+}
+
+table.compact th,
+table.compact td {
+    padding: 3px 5px;
+    font-size: 9.5pt;
+}
+
+table.tiny th,
+table.tiny td {
+    padding: 2px 4px;
+    font-size: 8.5pt;
+}
+
+table.plain,
+table.plain td,
+table.plain th {
+    border: none;
+}
+
+table.center td,
+table.center th {
+    text-align: center;
+}
+
+/* ---------- Code ---------- */
+
+code {
+    font-family: 'Courier New', monospace;
+    font-size: 10.5pt;
+}
+
+pre {
+    font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+    font-size: 8pt;
+    line-height: 1.28;
+    margin: 7px 0;
+    padding: 6px 8px;
+    border: 0.5pt solid #999;
+    background: #fafafa;
+    overflow-x: hidden;
+    white-space: pre;
+    letter-spacing: 0;
+    text-align: left;
+    text-indent: 0;
+}
+
+pre.code-block {
+    font-size: 7.6pt;
+    line-height: 1.25;
+}
+
+/* ---------- Table of contents ---------- */
+
+.toc-entry {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 3px;
+    font-size: 11.5pt;
+    text-indent: 0;
+}
+
+.toc-entry .toc-title {
+    white-space: nowrap;
+}
+
+.toc-entry .toc-dots {
+    flex: 1;
+    border-bottom: 1px dotted #000;
+    margin: 0 5px;
+    min-width: 20px;
+}
+
+.toc-entry .toc-page {
+    white-space: nowrap;
+}
+
+.toc-entry.chapter {
+    font-weight: bold;
+    margin-top: 9px;
+}
+
+.toc-entry.sub {
+    padding-left: 25px;
+}
+
+.toc-entry.subsub {
+    padding-left: 50px;
+}
+
+/* ---------- Figures ---------- */
+
+.figure-box {
+    border: none;
+    padding: 6px;
+    margin: 8px 0;
+    text-align: left;
+    font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+    font-size: 8pt;
+    white-space: pre;
+    overflow-x: hidden;
+    letter-spacing: 0;
+    line-height: 1.25;
+    text-indent: 0;
+}
+
+.figure-caption {
+    text-align: center;
+    font-size: 10.5pt;
+    font-weight: bold;
+    margin: 6px 0 12px;
+    text-indent: 0;
+}
+
+.table-caption {
+    text-align: center;
+    font-size: 10.5pt;
+    font-weight: bold;
+    margin: 10px 0 4px;
+    text-indent: 0;
+}
+
+/* ---------- Screenshot mock-ups ---------- */
+
+.screenshot {
+    border: 1.5pt solid #333;
+    margin: 9px 0;
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8.5pt;
+    text-align: left;
+    padding: 0;
+    text-indent: 0;
+}
+
+.screenshot .navbar {
+    background: #343a40;
+    color: #fff;
+    padding: 5px 10px;
+    font-size: 9pt;
+    display: flex;
+    justify-content: space-between;
+    text-indent: 0;
+}
+
+.screenshot .navbar .brand {
+    font-weight: bold;
+}
+
+.screenshot .navbar .navlinks {
+    color: #adb5bd;
+}
+
+.screenshot .sidebar {
+    background: #f1f3f5;
+    border-right: 0.5pt solid #ced4da;
+    padding: 8px 10px;
+    font-size: 8pt;
+    width: 34mm;
+    float: left;
+    min-height: 62mm;
+    text-indent: 0;
+}
+
+.screenshot .sidebar .menu-label {
+    font-size: 6.5pt;
+    letter-spacing: 0.8pt;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+
+.screenshot .sidebar .menu-item {
+    padding: 2px 0;
+    color: #343a40;
+}
+
+.screenshot .sidebar .menu-item.active {
+    font-weight: bold;
+    color: #0b2545;
+}
+
+.screenshot .body {
+    margin-left: 34mm;
+    padding: 8px 12px;
+    text-indent: 0;
+}
+
+.screenshot .page-title {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #0b2545;
+    margin-bottom: 2px;
+}
+
+.screenshot .page-sub {
+    font-size: 8pt;
+    color: #6c757d;
+    margin-bottom: 7px;
+}
+
+.screenshot .statrow {
+    display: flex;
+    gap: 6px;
+    margin: 6px 0;
+}
+
+.screenshot .stat {
+    border: 0.5pt solid #ced4da;
+    padding: 4px 7px;
+    flex: 1;
+    text-indent: 0;
+}
+
+.screenshot .stat .k {
+    font-size: 6.5pt;
+    color: #6c757d;
+    letter-spacing: 0.4pt;
+}
+
+.screenshot .stat .v {
+    font-size: 13pt;
+    font-weight: bold;
+    color: #0b2545;
+}
+
+.screenshot .btn {
+    display: inline-block;
+    padding: 2px 9px;
+    border: 0.75pt solid #333;
+    margin: 2px 2px 2px 0;
+    font-size: 7.5pt;
+    text-indent: 0;
+}
+
+.screenshot .btn-primary {
+    background: #0b2545;
+    color: #fff;
+    border-color: #0b2545;
+}
+
+.screenshot .card {
+    border: 0.5pt solid #dee2e6;
+    padding: 6px 8px;
+    margin: 5px 0;
+    text-indent: 0;
+}
+
+.screenshot .form-group {
+    margin: 4px 0;
+    text-indent: 0;
+}
+
+.screenshot .form-group label {
+    display: inline-block;
+    width: 32mm;
+    font-weight: bold;
+    font-size: 7.5pt;
+}
+
+.screenshot .form-control {
+    border: 0.5pt solid #ced4da;
+    padding: 1px 5px;
+    width: 55mm;
+    display: inline-block;
+    font-size: 7.5pt;
+    color: #495057;
+}
+
+.screenshot .badge {
+    background: #198754;
+    color: #fff;
+    padding: 1px 5px;
+    font-size: 6.5pt;
+}
+
+.screenshot .badge.warn {
+    background: #b02a37;
+}
+
+.screenshot .badge.info {
+    background: #0d6efd;
+}
+
+.screenshot .badge.grey {
+    background: #6c757d;
+}
+
+.screenshot .row {
+    display: flex;
+    gap: 6px;
+}
+
+.screenshot .col {
+    flex: 1;
+}
+
+.screenshot .muted {
+    color: #6c757d;
+    font-size: 7.5pt;
+}
+
+.screenshot .divider {
+    border-top: 0.5pt solid #dee2e6;
+    margin: 6px 0;
+}
+
+.screenshot table {
+    font-size: 7.5pt;
+    margin: 4px 0;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.screenshot table th,
+.screenshot table td {
+    padding: 2px 4px;
+    text-align: left;
+}
+
+.screenshot table th {
+    background: #f1f3f5;
+}
+
+.screenshot .stepper {
+    display: flex;
+    gap: 3px;
+    margin: 6px 0;
+}
+
+.screenshot .step {
+    flex: 1;
+    border-top: 2pt solid #ced4da;
+    padding-top: 3px;
+    font-size: 6.5pt;
+    text-indent: 0;
+}
+
+.screenshot .step.done {
+    border-top-color: #198754;
+}
+
+.screenshot .step.current {
+    border-top-color: #0d6efd;
+    font-weight: bold;
+}
+
+.screenshot .ballot-option {
+    border: 0.75pt solid #ced4da;
+    padding: 5px 8px;
+    margin: 4px 0;
+    display: flex;
+    justify-content: space-between;
+    text-indent: 0;
+}
+
+.screenshot .ballot-option.selected {
+    border-color: #0b2545;
+    background: #eef2f7;
+    font-weight: bold;
+}
+
+/* ---------- Callouts ---------- */
+
+.note {
+    border-left: 3pt solid #444;
+    background: #f7f7f7;
+    padding: 7px 10px;
+    margin: 9px 0;
+    font-size: 10.5pt;
+    text-indent: 0;
+}
+
+.note .note-label {
+    font-weight: bold;
+    font-variant: small-caps;
+}
+
+.quote {
+    margin: 9px 40px;
+    font-style: italic;
+    font-size: 11pt;
+    text-indent: 0;
+}
+
+.keypoint {
+    border: 0.75pt solid #000;
+    padding: 8px 12px;
+    margin: 10px 0;
+    text-align: center;
+    font-weight: bold;
+    font-size: 11.5pt;
+    text-indent: 0;
+}
+
+/* ---------- Misc ---------- */
+
+.center {
+    text-align: center;
+    text-indent: 0;
+}
+
+.small {
+    font-size: 10pt;
+}
+
+.tiny-text {
+    font-size: 9pt;
+}
+
+.right {
+    text-align: right;
+}
+
+.bold {
+    font-weight: bold;
+}
+
+.mono {
+    font-family: 'Courier New', monospace;
+    font-size: 10pt;
+}
+
+.spacer-sm {
+    height: 6mm;
+}
+
+.spacer-md {
+    height: 14mm;
+}
+
+.spacer-lg {
+    height: 28mm;
+}
+
+.page-break-avoid {
+    page-break-inside: avoid;
+}
+
+hr {
+    border: none;
+    border-top: 0.75pt solid #000;
+    margin: 10px 0;
+}
+
+hr.thin {
+    border-top: 0.4pt solid #999;
+}
+
+/* ---------- Print / screen ---------- */
+
+@media print {
+    .page {
+        margin: 0;
+    }
+    body {
+        background: #fff;
+    }
+    pre {
+        page-break-inside: avoid;
+    }
+    .screenshot {
+        page-break-inside: avoid;
+    }
+}
+
+@media screen {
+    body {
+        background: #e9ecef;
+        padding: 8px 0;
+    }
+    .page {
+        box-shadow: 0 1px 5px rgba(0, 0, 0, .2);
+        margin-bottom: 10px;
+    }
+}
+
+</style>
+</head>
+<body>
+
+<div class="page">
+  <h1>FRONT PAGES</h1>
+  <p style="text-align:justify;">This file contains the preliminary pages of the project report, extracted from the full report so that they can be printed, signed and bound separately. The pages are identical in content and typography to pages i to vi of <i>VOTE_ANYWHERE_PROJECT_REPORT.html</i>; the full report contains the same pages followed by the Table of Contents (vii&ndash;ix), List of Figures (x), List of Tables (xi&ndash;xiii) and List of Abbreviations (xiv&ndash;xvi).</p>
+  <table class="compact">
+    <tr><th style="width:8%;">Page</th><th style="width:36%;">Item</th><th>Signature required</th></tr>
+    <tr><td>i</td><td>Title page</td><td>None. This is the outer cover.</td></tr>
+    <tr><td>ii</td><td>Bonafide Certificate</td><td>Project Guide and Head of Department; then Internal and External Examiner at the viva</td></tr>
+    <tr><td>iii</td><td>Declaration</td><td>Candidate, with place and date</td></tr>
+    <tr><td>iv</td><td>Acknowledgement</td><td>None</td></tr>
+    <tr><td>v&ndash;vi</td><td>Abstract</td><td>None</td></tr>
+  </table>
+  <p class="table-caption">Table F.1: Preliminary pages and the signatures they require</p>
+  <h3>Printing notes</h3>
+  <ul class="tight">
+    <li>Print single-sided on A4 at 100 per cent scale. The layout is fixed at A4 with 25&nbsp;mm left and 20&nbsp;mm right margins for binding.</li>
+    <li>The certificate and declaration are bound into the report; they are not inserted loose.</li>
+    <li>The title page carries the candidate name, register number, guide, department, institution and month exactly as they appear in the full report: <b>KARPAGA SELVAM S</b>, <b>DC2431006010014</b>, November 2026.</li>
+    <li>Page numbers in this file are shown as i to vi to match the full report. When this file is printed alone the numbers still read correctly, because the roman sequence begins at i.</li>
+  </ul>
+  <div class="page-number">FP-1</div>
+</div>
+
+<div class="page front-page roman-page">
+<p class="subtitle" style="text-indent:0;">A PROJECT REPORT ON</p>
+<h1 style="font-size:17pt; text-transform:uppercase; margin-top:6px;">VOTE ANYWHERE<br>A REMOTE POLLING SYSTEM SIMULATOR FOR<br>GEOGRAPHICALLY MOBILE VOTERS</h1>
+<p class="subtitle" style="text-indent:0; margin-top:6px;">Submitted in partial fulfilment of the requirements for the award of the degree of</p>
+<p class="degree">BACHELOR OF COMPUTER APPLICATIONS</p>
+<p class="by">SUBMITTED BY</p>
+<p class="name">KARPAGA SELVAM S</p>
+<p class="reg">Register Number: DC2431006010014</p>
+<p class="by">UNDER THE GUIDANCE OF</p>
+<p class="name" style="font-size:13pt;">Dr. A. THIRUMURTHI RAJA</p>
+<p class="reg" style="margin-bottom:6px;">Assistant Professor, Department of Computer Applications</p>
+<div class="emblem">
+        <span class="emblem-top">SRM</span>
+        <span class="emblem-mid">VA</span>
+        <span class="emblem-bot">VOTE ANYWHERE<br>PROJECT</span>
+    </div>
+<p class="dept">DEPARTMENT OF COMPUTER APPLICATIONS<br>DIRECTORATE OF DISTANCE EDUCATION<br>SRM INSTITUTE OF SCIENCE AND TECHNOLOGY</p>
+<p class="university">(Deemed to be university u/s 3 of UGC Act, 1956)<br>Kattankulathur &ndash; 603 203<br>Chennai, Tamilnadu</p>
+<p class="date">NOVEMBER 2026</p>
+<div class="page-number">i</div>
+</div>
+
+<div class="page cert-page roman-page">
+<h2>BONAFIDE CERTIFICATE</h2>
+<p>This is to certify that the project report titled <b>&ldquo;VOTE ANYWHERE: A REMOTE POLLING SYSTEM SIMULATOR FOR GEOGRAPHICALLY MOBILE VOTERS&rdquo;</b> is a bonafide work carried out by <b>KARPAGA SELVAM S (DC2431006010014)</b> under my supervision for the award of the Degree of Bachelor of Computer Applications. To my knowledge the work reported herein is the original work done by this student.</p>
+<p class="no-indent" style="text-align:justify;">The project has been developed as a full-stack web application comprising a React and TypeScript presentation layer, a Node.js and Express service layer, and a PostgreSQL 16 database accessed through the Prisma object-relational mapper. The report submitted here describes the analysis, design, implementation and testing of that application.</p>
+<div class="signatures">
+        <div class="sig-block">
+            <b>PROJECT GUIDE</b><br><br><br><br>
+            Dr. A. Thirumurthi Raja<br>
+            Assistant Professor,<br>
+            SRMIST-DDE
+        </div>
+        <div class="sig-block">
+            <b>HEAD OF DEPARTMENT</b><br><br><br><br>
+            Dr. A. Thirumurthi Raja<br>
+            Program Coordinator<br>
+            Department of Computer Applications,<br>
+            Directorate of Distance Education (DDE)<br>
+            SRMIST
+        </div>
+    </div>
+<div class="signatures" style="margin-top:45px;">
+        <div class="sig-block"><b>INTERNAL EXAMINER</b></div>
+        <div class="sig-block"><b>EXTERNAL EXAMINER</b></div>
+    </div>
+<div class="page-number">ii</div>
+</div>
+
+<div class="page roman-page">
+<h1>DECLARATION</h1>
+<br>
+<p>I hereby declare that the project report titled <b>&ldquo;VOTE ANYWHERE: A REMOTE POLLING SYSTEM SIMULATOR FOR GEOGRAPHICALLY MOBILE VOTERS&rdquo;</b> submitted to the SRM Institute of Science and Technology, in partial fulfilment of the requirements for the award of the Degree of <b>Bachelor of Computer Applications (BCA)</b>, is a record of original work done by me under the guidance of <b>Dr. A. Thirumurthi Raja</b>, Assistant Professor, Department of Computer Applications, Directorate of Distance Education, SRMIST.</p>
+<p>I further declare that this project work has not been submitted to any other university or institution for the award of any degree or diploma. All voter records, constituencies, polling centres, candidates and election data used by the application are fictional and are generated by a seed script written for this project. The application does not connect to any real electoral roll, Election Commission of India system, Aadhaar service, biometric database or government API, and it does not conduct or simulate any real election.</p>
+<p>The source code described in Chapters 5, 6 and 7 was written by me. Third-party libraries are used under their respective open-source licences and are acknowledged in the References. No portion of this report has been copied from another student&rsquo;s project report.</p>
+<div class="spacer-md"></div>
+<p class="no-indent" style="text-align:left;">Place: Chennai</p>
+<p class="no-indent" style="text-align:left;">Date: November 2026</p>
+<div class="spacer-lg"></div>
+<p class="no-indent" style="text-align:right;"><b>KARPAGA SELVAM S</b><br>DC2431006010014</p>
+<div class="page-number">iii</div>
+</div>
+
+<div class="page roman-page">
+<h1>ACKNOWLEDGEMENT</h1>
+<br>
+<p>With profound gratitude to the ALMIGHTY, I take this opportunity to thank the people who helped me to complete this project successfully.</p>
+<p>I take this as a right opportunity to say THANKS to my parents, who are always there to stand with me with the words &ldquo;YOU CAN&rdquo;.</p>
+<p>I am thankful to <b>Dr. T.R. Paarivendhar</b>, Chancellor, SRM Institute of Science &amp; Technology, who gave us the platform to establish ourselves and to reach greater heights.</p>
+<p>I express my deep sense of gratitude to the Director, <b>Dr. Manoranjan Pon Ram</b>, for the wholehearted support and encouragement extended throughout the programme.</p>
+<p>I earnestly thank <b>Dr. A. Thirumurthi Raja</b>, Programme Coordinator, BCA/MCA &ndash; Directorate of Distance Education, SRM Institute of Science &amp; Technology, who always encourages us to do novel things and who insisted that a project report should describe what the software actually does, not what the author wishes it did.</p>
+<p>It is my delight to thank my project guide <b>Dr. A. Thirumurthi Raja</b>, Assistant Professor, Department of Computer Applications (DDE), for his help, support, encouragement, suggestions and guidance throughout the development phases of the project. His repeated question &mdash; &ldquo;where in the schema is that enforced?&rdquo; &mdash; shaped the design of the ballot-secrecy boundary described in Chapter 4.</p>
+<p>I convey my gratitude to all the faculty members of the department who extended their support through valuable comments and suggestions during the reviews, and in particular to the reviewers who asked how a duplicate ballot would be stopped if two requests arrived at the same instant. That question produced the database-constraint approach documented in Section 6.6.</p>
+<p>A great note of gratitude to friends and people who are known and unknown to me who helped in carrying out this project work as a successful one.</p>
+<div class="spacer-md"></div>
+<p class="no-indent" style="text-align:right;"><b>KARPAGA SELVAM S</b><br>DC2431006010014</p>
+<div class="page-number">iv</div>
+</div>
+
+<div class="page roman-page">
+<h1>ABSTRACT</h1>
+<br>
+<p>Elections are fundamental to democratic processes, but the geographic mobility of voters poses a persistent and practical challenge to electoral participation. A citizen who has moved to another city for work, study or medical treatment, and who is therefore away from the constituency in which they are registered, frequently cannot travel back to vote. The distance may be a few hundred kilometres or a few thousand; the effect is the same. The voter remains eligible, remains enrolled, and yet is effectively excluded from the poll. This project addresses that problem as an academic exercise in workflow simulation.</p>
+<p><b>Vote Anywhere: A Remote Polling System Simulator for Geographically Mobile Voters</b> is a BCA final-year project that models the complete administrative journey of a geographically mobile voter. The system begins with voter authentication, proceeds through eligibility verification and the submission of a remote polling request, routes that request to a Verification Officer for claim, review, approval or rejection, generates an approved remote polling assignment, and finally presents a controlled ballot and records the submitted choice. At every state change the system writes an audit record describing the actor, the timestamp and the operation.</p>
+<p>The design is organised around one invariant, referred to throughout the report as the <b>Core Rule</b>: <i>a remote polling centre changes where a voter votes; it never changes the voter&rsquo;s registered constituency or the ballot they receive.</i> The rule is not merely documented. It is enforced by the shape of the data model &mdash; the approved remote polling assignment carries no constituency column at all &mdash; and by the signature of the ballot-generation service, which accepts an entire voter record rather than a loose constituency identifier, making it impossible for a caller to pass the remote centre&rsquo;s constituency by accident.</p>
+<p>A second invariant, <b>ballot secrecy</b>, is enforced structurally. The database contains two disjoint tables: an identity-side table that records only <i>that</i> a voter voted, and a choice-side table that records only <i>what</i> was chosen. No foreign key, shared key or Prisma relation connects them. The candidate choice is sealed with AES-256-GCM under a key read from a single module and validated at first use, with the ballot reference, election identifier and constituency identifier bound into the associated data so that a stored ciphertext cannot be relocated to another row. Verification of a stored ballot is a decryption attempt that returns only a boolean; a separate function opens a ballot for counting and is reachable only from the Election Simulator after an election has closed.</p>
+<div class="page-number">v</div>
+</div>
+
+<div class="page roman-page">
+<p>The application implements five roles &mdash; Election Administrator, Verification Officer, Polling Centre Officer, System Auditor and Voter &mdash; with authorization enforced by explicit allow-list middleware on the server rather than by hiding pages in the browser. Officers authenticate with a bcrypt-hashed password and a JSON Web Token backed by a revocable server-side session record; voters authenticate with a mock one-time password delivered through a development-only channel. Neither path reveals whether an account exists, because both run a bcrypt comparison against a dummy hash on the failure path and return an identical status and body.</p>
+<p>The implementation comprises a React 19 and TypeScript single-page frontend built with Vite and styled with Tailwind CSS 4, a Node.js and Express 4 backend written in TypeScript and organised into nine domain modules, and a PostgreSQL 16 database whose structure is defined by Prisma 6 and created by versioned SQL migrations. Duplicate ballot submission is rejected by a unique database constraint rather than by an application-level check, so two simultaneous submissions cannot both succeed. A partial unique index, hand-written in the migration because Prisma cannot express it, permits at most one active remote polling request per voter per election.</p>
+<p>All voter records, constituencies, polling centres, candidates and election data are fictional and are produced by an idempotent seed script. The system does not connect to a real electoral roll, a government service or a biometric system, and it does not conduct an actual election. It is a workflow simulator whose value lies in the visibility of its invariants: a reviewer can confirm the Core Rule and the ballot-secrecy boundary by reading the Prisma schema alone, without running the application.</p>
+<p>The report documents the analysis, design, implementation and testing of this system across eight chapters, supported by forty-one figures, thirty-eight tables, twenty-nine numbered code sketches and an appendix containing the full data dictionary, the REST reference, the traceability matrix and the complete test log.</p>
+<br>
+<p class="no-indent"><b>Keywords:</b> Remote Polling, Election Management, Voter Authentication, Ballot Secrecy, Ballot Integrity, Constituency Invariant, Role-Based Access Control, Audit Trail, Election Simulator, AES-256-GCM, Prisma, PostgreSQL, React, Node.js, Docker.</p>
+<div class="page-number">vi</div>
+</div>
+
+</body>
+</html>
